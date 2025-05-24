@@ -1,7 +1,6 @@
-﻿
-using Domain.Info;
+﻿using Domain.Info;
 using Xunit;
-namespace UnitTests.Api.Info;
+namespace UnitTests.Domain.Info;
 
 public class IISInfo
 {

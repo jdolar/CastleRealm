@@ -5,8 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using Type = DataBase.Collections.Castles.Models.Static.Type;
 using DataBase.SQL;
 using DataBase.Collections.Castles.Models.Info;
-using Shared;
 using DataBase.Collections.Castles.Models.Static;
+using Shared.Tools;
 
 namespace DataBase.Collections.Castles.Data;
 

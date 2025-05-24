@@ -1,7 +1,7 @@
 ﻿using DataBase.Collections.Castles;
 using Microsoft.EntityFrameworkCore;
-using Shared;
 using Shared.Requests;
+using Shared.Tools;
 using Shared.Tools.Database;
 using Swashbuckle.AspNetCore.Swagger;
 using System.Reflection;

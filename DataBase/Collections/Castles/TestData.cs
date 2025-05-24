@@ -1,5 +1,4 @@
-﻿using Shared;
-using Shared.Tools.Random;
+﻿using Shared.Tools;
 
 namespace DataBase.Collections.Castles;
 
@@ -7,7 +6,7 @@ public sealed class TestData(CastleContext context)
 {
     public async Task<int> AddRandomCastles(int number)
     {
-        Generator gen = new();
+        RandomGenerator gen = new();
         Data.Add dbAdd = new(context);
 
         for (int i = 0; i < number; i++)
