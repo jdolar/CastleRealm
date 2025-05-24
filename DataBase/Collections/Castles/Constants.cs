@@ -1,4 +1,4 @@
-﻿namespace Shared.Tools.Database;
+﻿namespace DataBase.Collections.Castles;
 public sealed class SQLServer
 {
     // SQL Server

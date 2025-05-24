@@ -1,9 +1,9 @@
 ﻿using System.Security.Cryptography;
 using System.Text;
 
-namespace Shared.Tools.Random
+namespace Shared.Tools
 {
-    public sealed class Generator
+    public sealed class RandomGenerator
     {
         private const string defaultCharset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 

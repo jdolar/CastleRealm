@@ -1,4 +1,4 @@
-﻿using Shared.Tools.Crypto;
+﻿using Shared.Tools;
 namespace Domain.Tools;
 public sealed class AesEncryption       
 {    
@@ -7,7 +7,7 @@ public sealed class AesEncryption
         aesKey ??= AesKey.Default;
         aesIv ??= AesIv.Default;
 
-        Aes aes = new(aesKey, aesIv);
+        AesCrypto aes = new(aesKey, aesIv);
         return aes.Encrypt(input);
     }
     public string DecryptString(string input, string? aesKey = null, string? aesIv = null)
@@ -15,7 +15,7 @@ public sealed class AesEncryption
         aesKey ??= AesKey.Default;
         aesIv ??= AesIv.Default;
 
-        Aes aes = new(aesKey, aesIv);
+        AesCrypto aes = new(aesKey, aesIv);
         return aes.Decrypt(input);
     }
 }
