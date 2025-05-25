@@ -2,10 +2,8 @@
 using Microsoft.EntityFrameworkCore;
 using Shared.Requests;
 using Shared.Tools;
-using Shared.Tools.Database;
 using Swashbuckle.AspNetCore.Swagger;
 using System.Reflection;
-
 namespace Api.System;
 public static class Setup
 {
@@ -44,7 +42,7 @@ public static class Setup
                 IRequest? request = Activator.CreateInstance(type) as IRequest;
 
                 // Register the routes for the handler
-                ConsoleLogger.Debug("{0} Mapping {1} [{2}]", appName!, request!.Path, type.Namespace!);
+                ConsoleLogger.Debug("{0} Mapping /{1} [{2}]", appName!, request!.Path, type.Namespace!);
                 request?.ConfigureRoutes(app);
             }
             catch (Exception ex)
