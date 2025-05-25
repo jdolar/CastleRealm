@@ -38,15 +38,18 @@ public class ApiSmokeTests : IClassFixture<WebApplicationFactory<Program>>, IAsy
         }
     }
 
-    [Theory]
-    [MemberData(nameof(EndpointData))]
-    public async Task All_Endpoints_Should_Respond(string method, string url)
+    [Fact]
+    public async Task All_Endpoints_Should_Respond()
     {
-        var request = new HttpRequestMessage(new HttpMethod(method), url);
-        var response = await _client.SendAsync(request);
+        var endpoints = await GetSwaggerEndpoints(_client);
+        foreach (var (method, path) in endpoints)
+        {
+            var request = new HttpRequestMessage(new HttpMethod(method), path);
+            var response = await _client.SendAsync(request);
 
-        Assert.True((int)response.StatusCode < 500,
-            $"Failed: {method} {url} → {(int)response.StatusCode}");
+            Assert.True((int)response.StatusCode < 500,
+                $"Failed: {method} {path} → {(int)response.StatusCode}");
+        }
     }
 
     private static async Task<IEnumerable<(string Method, string Path)>> GetSwaggerEndpoints(HttpClient client)
