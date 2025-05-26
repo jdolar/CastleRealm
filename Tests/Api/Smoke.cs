@@ -1,7 +1,10 @@
-﻿using System.Text.Json;
+﻿using System.Reflection;
+using System.Text;
+using System.Text.Json;
 using Api;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Shared.Requests;
 using Xunit;
 
 namespace UnitTests.Api;
@@ -34,38 +37,80 @@ public class ApiSmokeTests : IClassFixture<WebApplicationFactory<Program>>, IAsy
 
         foreach (var e in swaggerEndpoints)
         {
-            _endpoints.Add(new object[] { e.Method, e.Path });
+            _endpoints.Add(new object[] { e.Method, e.Path, e.OperationId });
         }
+    }
+    private static HttpContent? TryBuildPayload(Type? dtoType)
+    {
+        if (dtoType == null)
+            return null;
+
+        if (typeof(IPayLoad).IsAssignableFrom(dtoType))
+        {
+            IPayLoad? instance = Activator.CreateInstance(dtoType) as IPayLoad;
+            object? payload = instance?.GetDefaultPayload();
+            string json = JsonSerializer.Serialize(payload);
+            return new StringContent(json, Encoding.UTF8, "application/json");
+        }
+
+        return null;
     }
 
     [Fact]
     public async Task All_Endpoints_Should_Respond()
     {
         var endpoints = await GetSwaggerEndpoints(_client);
-        foreach (var (method, path) in endpoints)
+        foreach (var (method, path, operationId) in endpoints)
         {
-            var request = new HttpRequestMessage(new HttpMethod(method), path);
-            var response = await _client.SendAsync(request);
+            HttpRequestMessage request = new(new HttpMethod(method), path);
 
+            if (method is "POST" or "PUT")
+            {
+                Type? dtoType = LookupDtoForOperationId(operationId);
+                HttpContent? content = TryBuildPayload(dtoType);
+                if (content != null)
+                {
+                    request.Content = content;
+                }
+
+            }
+
+            var response = await _client.SendAsync(request);
             Assert.True((int)response.StatusCode < 500,
                 $"Failed: {method} {path} → {(int)response.StatusCode}");
         }
     }
-
-    private static async Task<IEnumerable<(string Method, string Path)>> GetSwaggerEndpoints(HttpClient client)
+    private Type? LookupDtoForOperationId(string operationId)
     {
-        var json = await client.GetStringAsync("/swagger/v1/swagger.json");
-        using var doc = JsonDocument.Parse(json);
+        Type? interfaceType = typeof(IPayLoad);
+        Assembly? assembly = interfaceType.Assembly;
 
-        var paths = doc.RootElement.GetProperty("paths");
+        Type? handlerType = assembly.GetTypes()
+            .Where(t => t.IsClass && !t.IsAbstract && !t.IsInterface)
+            .FirstOrDefault(t =>
+                interfaceType.IsAssignableFrom(t) &&
+                t.Name.Equals(operationId, StringComparison.OrdinalIgnoreCase));
+        
+        return handlerType;
+    }
+    private static async Task<IEnumerable<(string Method, string Path, string OperationId)>> GetSwaggerEndpoints(HttpClient client)
+    {
+        string json = await client.GetStringAsync("/swagger/v1/swagger.json");
+        using JsonDocument doc = JsonDocument.Parse(json);
 
-        var endpoints = new List<(string Method, string Path)>();
+        JsonElement paths = doc.RootElement.GetProperty("paths");
 
-        foreach (var path in paths.EnumerateObject())
+        var endpoints = new List<(string Method, string Path, string OperationId)>();
+
+        foreach (JsonProperty path in paths.EnumerateObject())
         {
-            foreach (var method in path.Value.EnumerateObject())
+            foreach (JsonProperty method in path.Value.EnumerateObject())
             {
-                endpoints.Add((method.Name.ToUpperInvariant(), path.Name));
+                // operationId is inside each method object
+                if (method.Value.TryGetProperty("operationId", out var opId))
+                {
+                    endpoints.Add((method.Name.ToUpperInvariant(), path.Name, opId.GetString()!));
+                }
             }
         }
 

@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Routing;
-
 namespace Shared.Requests;
 public interface IRequest
 {

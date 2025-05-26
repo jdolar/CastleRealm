@@ -1,4 +1,5 @@
 ﻿using Shared.Requests;
+using System.Reflection;
 namespace Api.Http;
 public class Info
 {
@@ -30,6 +31,23 @@ public class Info
             .WithName(nameof(Weather))
             .WithTags(nameof(Info))
             .Produces<Shared.Responses.Info.Weather>(StatusCodes.Status200OK);
+        }
+    }
+    public sealed class Ident : IRequest
+    {
+        public string Path { get; } = string.Format("{0}/{1}", nameof(Info), nameof(Ident));
+        private static DateTime started { get; } = DateTime.UtcNow;
+        private static Assembly assembly = Assembly.GetExecutingAssembly();
+        readonly Domain.Info.Ident info = new(assembly, started);
+        public void ConfigureRoutes(IEndpointRouteBuilder app)
+        {
+            app.MapGet(Path, async () =>
+            {
+                return Results.Ok(info.Get());
+            })
+            .WithName(nameof(Ident))
+            .WithTags(nameof(Info))
+            .Produces<Shared.Responses.Info.Ident>(StatusCodes.Status200OK);
         }
     }
 }

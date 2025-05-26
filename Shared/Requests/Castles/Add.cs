@@ -1,5 +1,5 @@
 ﻿namespace Shared.Requests.Castles;
-public sealed class Add
+public sealed class Add : IPayLoad
 {
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
@@ -11,4 +11,17 @@ public sealed class Add
     public string? Town { get; set; }
     public string? State { get; set; }
     public string? Location { get; set; }
+    public object GetDefaultPayload() => new Add
+    {
+        Name = "Default Castle Name",
+        Description = "Default Castle Description",
+        Country = "Default Country",
+        Location = "1,1",
+        Note = "Default Notes",
+        Region = "Default Region",
+        State = "Default State",
+        Town = "Default Town",
+        Type = "Default Type",
+        Url = "https://example.com/castle",
+    };
 }

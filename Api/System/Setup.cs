@@ -9,11 +9,29 @@ public static class Setup
 {
     private static bool swaggerEnabled = false;
     private static readonly string? appName = string.Format("[{0}]", typeof(Setup).FullName);
+    public static void ConfigureLogger(WebApplicationBuilder builder)
+    {
+        ConsoleLogger.Debug("{0} ConfigureLogger invoked", appName!);
+        
+        builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
+        builder.Services.AddHttpLogging(logging =>
+        {
+            logging.LoggingFields = Microsoft.AspNetCore.HttpLogging.HttpLoggingFields.All;
+        });
+
+        ConsoleLogger.Debug("{0} ConfigureLogger invoked finished with", appName!);
+    }
+    public static void EnableLogger(WebApplication app)
+    {
+        ConsoleLogger.Debug("{0} EnableLogger invoked", appName!);
+        
+        app.UseHttpLogging();
+
+        ConsoleLogger.Debug("{0} EnableLogger invoked finished with", appName!);
+    }
     public static void RegisterDatabases(WebApplicationBuilder builder)
     {
         ConsoleLogger.Debug("{0} RegisterDatabases invoked", appName!);
-
-        builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
 
         string connection = ConnectionBuilder.DecryptOrGetDefault(builder.Configuration.GetConnectionString("DefaultConnection"));
         builder.Services.AddDbContext<CastleContext>(options =>
