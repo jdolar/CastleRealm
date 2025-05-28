@@ -9,5 +9,5 @@ public sealed class Name
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
     public int Id { get; set; }
     public int CastleId { get; set; }
-    public string Value { get; set; }
+    public string Value { get; set; } = string.Empty;
 }

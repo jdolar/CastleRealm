@@ -12,8 +12,6 @@ public class Logger : ILogger
         _config = config;
     }
 
-    public IDisposable? BeginScope<TState>(TState state) => null;
-
     public bool IsEnabled(LogLevel logLevel) => logLevel >= _config.MinLogLevel;
 
     public void Log<TState>(
@@ -47,7 +45,6 @@ public class Logger : ILogger
             }
         }
     }
-
     private static ConsoleColor GetColor(LogLevel level) => level switch
     {
         LogLevel.Information => ConsoleColor.White,
@@ -57,4 +54,9 @@ public class Logger : ILogger
         LogLevel.Critical => ConsoleColor.DarkRed,
         _ => ConsoleColor.Gray
     };
+
+    IDisposable? ILogger.BeginScope<TState>(TState state)
+    {
+        throw new NotImplementedException();
+    }
 }

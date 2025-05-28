@@ -9,7 +9,7 @@ public sealed class Index : IRequest
     public string Path { get; } = "/";
     public void ConfigureRoutes(IEndpointRouteBuilder app)
     { 
-        app.MapGet(Path, async () =>
+        app.MapGet(Path, () =>
         {
             return Results.Json(ident.Get());
         })

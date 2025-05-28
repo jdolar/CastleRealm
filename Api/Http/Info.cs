@@ -9,7 +9,7 @@ public class Info
         readonly Domain.Info.IIS serverInfo = new();
         public void ConfigureRoutes(IEndpointRouteBuilder app)
         {
-            app.MapGet(Path, async () =>
+            app.MapGet(Path, () =>
             {
                 return Results.Ok(serverInfo.Get());
             })
@@ -25,7 +25,7 @@ public class Info
         readonly Domain.Info.Weather weather = new();
         public void ConfigureRoutes(IEndpointRouteBuilder app)
         {
-            app.MapGet(Path, async () =>
+            app.MapGet(Path, () =>
             {
                 return Results.Ok(weather.Get());
             })
@@ -42,7 +42,7 @@ public class Info
         readonly Domain.Info.Ident info = new(assembly, started);
         public void ConfigureRoutes(IEndpointRouteBuilder app)
         {
-            app.MapGet(Path, async () =>
+            app.MapGet(Path, () =>
             {
                 return Results.Ok(info.Get());
             })

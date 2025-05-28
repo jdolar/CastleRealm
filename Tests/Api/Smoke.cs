@@ -4,12 +4,15 @@ using System.Text.Json;
 using Api;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Shared.Requests;
 using Xunit;
 namespace UnitTests.Api;
 public class ApiSmokeTests : IClassFixture<WebApplicationFactory<Program>>, IAsyncLifetime
 {
     private readonly HttpClient _client;
+    private readonly ILogger<ApiSmokeTests> _logger;
     private static readonly List<object[]> _endpoints = new();
     public ApiSmokeTests(WebApplicationFactory<Program> factory)
     {
@@ -19,6 +22,8 @@ public class ApiSmokeTests : IClassFixture<WebApplicationFactory<Program>>, IAsy
                 builder.UseEnvironment("Development"); // Ensure Swagger is enabled
             })
             .CreateClient();
+
+        _logger = factory.Services.GetRequiredService<ILogger<ApiSmokeTests>>();
     }
     public static IEnumerable<object[]> EndpointData => _endpoints;
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
@@ -49,10 +54,13 @@ public class ApiSmokeTests : IClassFixture<WebApplicationFactory<Program>>, IAsy
 
         return null;
     }
+
     [Fact]
     public async Task All_Endpoints_Should_Respond()
     {
+        CancellationToken cancellationToken = default;
         var endpoints = await GetSwaggerEndpoints(_client);
+
         foreach (var (method, path, operationId) in endpoints)
         {
             HttpRequestMessage request = new(new HttpMethod(method), path);
@@ -65,12 +73,10 @@ public class ApiSmokeTests : IClassFixture<WebApplicationFactory<Program>>, IAsy
                 {
                     request.Content = content;
                 }
-
             }
-
-            var response = await _client.SendAsync(request);
-            Assert.True((int)response.StatusCode < 500,
-                $"Failed: {method} {path} → {(int)response.StatusCode}");
+           
+            HttpResponseMessage? response = await _client.SendAsync(request, cancellationToken);
+            Assert.True((int)response.StatusCode < 500, $"Failed: {method} {path} → {(int)response.StatusCode}");
         }
     }
     private Type? LookupDtoForOperationId(string operationId)

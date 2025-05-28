@@ -6,10 +6,7 @@ using Type = DataBase.Collections.Castles.Models.Static.Type;
 using DataBase.SQL;
 using DataBase.Collections.Castles.Models.Info;
 using DataBase.Collections.Castles.Models.Static;
-using Shared.Tools;
-
 namespace DataBase.Collections.Castles.Data;
-
 public sealed class Add(CastleContext dbContext)
 {
     public async Task<int?> Single(Shared.Requests.Castles.Add request)
@@ -22,20 +19,10 @@ public sealed class Add(CastleContext dbContext)
         else
         {
             int? castleId = null;
-
-            // Country
             int? countryId = await ExecuteCustomMergeAsync(dbContext.Database, nameof(Country), request.Country!);
-
-            // Region
             int? regionId = await ExecuteCustomMergeAsync(dbContext.Database, nameof(Region), request.Region!);
-
-            // State
             int? stateId = await ExecuteCustomMergeAsync(dbContext.Database, nameof(State), request.State!);
-
-            // Town
             int? townId = await ExecuteCustomMergeAsync(dbContext.Database, nameof(Town), request.Town!);
-
-            // Type
             int? typeId = await ExecuteCustomMergeAsync(dbContext.Database, nameof(Type), request.Type!);
 
             // Location
@@ -70,28 +57,24 @@ public sealed class Add(CastleContext dbContext)
             await dbContext.SaveChangesAsync();
             castleId = castleEntity.Entity.Id;
 
-            // Description
             await dbContext.Description.AddAsync(new Description()
             {
                 CastleId = (int)castleId,
                 Value = request.Description!
             });
 
-            // Name
             await dbContext.Name.AddAsync(new Name()
             {
                 CastleId = (int)castleId,
                 Value = request.Name!
             });
 
-            // Note
             await dbContext.Note.AddAsync(new Note()
             {
                 CastleId = (int)castleId,
                 Value = request.Note!
             });
 
-            // Url
             await dbContext.Url.AddAsync(new Url()
             {
                 CastleId = (int)castleId,
@@ -104,15 +87,6 @@ public sealed class Add(CastleContext dbContext)
             return castleId;
         }
     }
-
-    //private static int? ExecuteCustomMerge(DatabaseFacade db, string tableName, string fieldValue, string? fieldName = "Value")
-    //{
-    //    return db
-    //        .SqlQueryRaw<int>(Merge.FormatSql(tableName, fieldName!), new SqlParameter(string.Join("@", fieldName), fieldValue))
-    //        .AsEnumerable()
-    //        .FirstOrDefault();
-    //}
-
     private static async Task<int?> ExecuteCustomMergeAsync(DatabaseFacade db, string tableName, string fieldValue, string? fieldName = "Value")
     {
         try
@@ -125,9 +99,8 @@ public sealed class Add(CastleContext dbContext)
                 .ToListAsync())
                 .FirstOrDefault();
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            ConsoleLogger.Error(ex.Message);
             return null;
         }
     }
