@@ -6,14 +6,11 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Shared.Requests;
 using Xunit;
-
 namespace UnitTests.Api;
-
 public class ApiSmokeTests : IClassFixture<WebApplicationFactory<Program>>, IAsyncLifetime
 {
     private readonly HttpClient _client;
     private static readonly List<object[]> _endpoints = new();
-
     public ApiSmokeTests(WebApplicationFactory<Program> factory)
     {
         _client = factory
@@ -23,11 +20,8 @@ public class ApiSmokeTests : IClassFixture<WebApplicationFactory<Program>>, IAsy
             })
             .CreateClient();
     }
-
     public static IEnumerable<object[]> EndpointData => _endpoints;
-
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
-
     public async ValueTask InitializeAsync()
     {
         if (_endpoints.Any())
@@ -55,7 +49,6 @@ public class ApiSmokeTests : IClassFixture<WebApplicationFactory<Program>>, IAsy
 
         return null;
     }
-
     [Fact]
     public async Task All_Endpoints_Should_Respond()
     {

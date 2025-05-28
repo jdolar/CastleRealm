@@ -16,6 +16,7 @@ public class Info
             .WithName(nameof(IIS))
             .WithTags(nameof(Info))
             .Produces<Shared.Responses.Info.IIS>(StatusCodes.Status200OK);
+
         }
     }
     public sealed class Weather : IRequest

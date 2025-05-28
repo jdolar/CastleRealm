@@ -1,51 +1,116 @@
 ﻿using DataBase.Collections.Castles;
 using Microsoft.EntityFrameworkCore;
 using Shared.Requests;
-using Shared.Tools;
+using Shared.Tools.SimpleLogger;
 using Swashbuckle.AspNetCore.Swagger;
 using System.Reflection;
 namespace Api.System;
+public sealed class LogSetup
+{
+    public int Id;
+    public string? ClassName;
+    public string? Method;
+    public LogLevel? LogLevel;
+    public string? Message;
+    public object? Parameters;
+    public LogSetup(int id, string className, string method, LogLevel loglevel, string message, object? parameters = null)
+    {
+        Id = id;
+        ClassName = className;
+        Method = method;
+        LogLevel = loglevel;
+        Message = message;
+        Parameters = parameters;
+    }
+    public override string ToString()
+    {
+        return string.Format("{0} [{1}] {2}.{3} | {4}{5}", Id, LogLevel, ClassName, Method, Message, Parameters);
+    }
+}
 public static class Setup
 {
+    private static List<LogSetup>? logSetup = new();
     private static bool swaggerEnabled = false;
     private static readonly string? appName = string.Format("[{0}]", typeof(Setup).FullName);
-    public static void ConfigureLogger(WebApplicationBuilder builder)
+    public static void LogAndFlush(IServiceProvider services)
     {
-        ConsoleLogger.Debug("{0} ConfigureLogger invoked", appName!);
-        
+        ILogger logger = services.GetRequiredService<ILoggerFactory>().CreateLogger("Setup");
+        logger.LogInformation("ba");
+        foreach (var entry in logSetup!)
+        {
+            bool enabled= logger.IsEnabled((LogLevel)entry.LogLevel!);
+            bool enabled2 = logger.IsEnabled(LogLevel.Information);
+            logger.LogDebug(string.Format("{0}.{1}: {2}", entry.ClassName, entry.Method, entry.Message), entry.Parameters);
+        }
+
+        logSetup.Clear();
+    }
+    
+    public static void ConfigureLogger(WebApplicationBuilder builder, bool? enableDebug = true, bool? enableSeverity = true, bool? enableLogStamps = true, bool? enableFileLogging = true)
+    {
+        Configuration logConfig = new()
+        {
+            // To-Do : read from appsettings.json
+            MinLogLevel = enableDebug.HasValue && (bool)enableDebug ? LogLevel.Debug : LogLevel.Information,
+            IncludeSeverity = enableSeverity.HasValue && (bool)enableSeverity,
+            IncludeTimestamp = enableLogStamps.HasValue && (bool)enableLogStamps,
+            EnableFileLogging = enableFileLogging.HasValue && (bool)enableFileLogging,
+            LogFilePath = Path.Combine(AppContext.BaseDirectory, "logs.txt")
+        };
+
+        Provider provider = new(logConfig);
+
         builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
+        builder.Logging.ClearProviders();
+        builder.Logging.AddProvider(provider);
+
         builder.Services.AddHttpLogging(logging =>
         {
             logging.LoggingFields = Microsoft.AspNetCore.HttpLogging.HttpLoggingFields.All;
         });
 
-        ConsoleLogger.Debug("{0} ConfigureLogger invoked finished with", appName!);
+        logSetup?.Add(new LogSetup
+        (
+            logSetup!.Count,
+            nameof(Setup),
+            nameof(ConfigureLogger),
+            LogLevel.Debug,
+            string.Format("Logger: Provider={0} [Config={1}]", provider, logConfig)
+        ));
     }
-    public static void EnableLogger(WebApplication app)
+    public static void EnableHttpLogging(WebApplication app)
     {
-        ConsoleLogger.Debug("{0} EnableLogger invoked", appName!);
-        
         app.UseHttpLogging();
 
-        ConsoleLogger.Debug("{0} EnableLogger invoked finished with", appName!);
+        logSetup?.Add(new LogSetup
+        (
+            logSetup!.Count,
+            nameof(Setup),
+            nameof(EnableHttpLogging),
+            LogLevel.Debug,
+            "HTTP Logging enabled"
+        ));
     }
     public static void RegisterDatabases(WebApplicationBuilder builder)
     {
-        ConsoleLogger.Debug("{0} RegisterDatabases invoked", appName!);
-
         string connection = ConnectionBuilder.DecryptOrGetDefault(builder.Configuration.GetConnectionString("DefaultConnection"));
         builder.Services.AddDbContext<CastleContext>(options =>
             options.UseSqlServer(connection));
 
-        ServiceDescriptor? dbServices = builder.Services
-            .FirstOrDefault(service => service.ServiceType == typeof(CastleContext));
-
-        ConsoleLogger.Debug("{0} RegisterDatabases finished with: {1}=>{2}", appName!, dbServices!.ServiceType.Name, dbServices != null ? "OK" : "NotOk");
+        ServiceDescriptor? database = builder.Services
+          .FirstOrDefault(service => service.ServiceType == typeof(CastleContext));
+        
+        logSetup?.Add(new LogSetup
+        (
+            logSetup!.Count,
+            nameof(Setup),
+            nameof(RegisterDatabases),
+            LogLevel.Debug,
+            string.Format("Db={0}=>{1}", database!.ServiceType.Name, database != null ? "OK" : "NotOk")
+        ));
     }
     public static void MapEndpoints(IEndpointRouteBuilder app)
     {
-        ConsoleLogger.Debug("{0} MapEndpoints invoked", appName!);
-
         // Get all types in the current assembly that implement IRouteHandler
         List<Type> types = Assembly.GetExecutingAssembly()
                                      .GetTypes()
@@ -60,54 +125,54 @@ public static class Setup
                 IRequest? request = Activator.CreateInstance(type) as IRequest;
 
                 // Register the routes for the handler
-                ConsoleLogger.Debug("{0} Mapping /{1} [{2}]", appName!, request!.Path, type.Namespace!);
                 request?.ConfigureRoutes(app);
+
+                logSetup?.Add(new LogSetup
+                (
+                    logSetup!.Count,
+                    nameof(Setup),
+                    nameof(MapEndpoints),
+                    LogLevel.Debug,
+                    string.Format("/{0} [Namespace={1}]", request!.Path, type.Namespace!)
+                ));
             }
             catch (Exception ex)
             {
-                ConsoleLogger.Error("{0} Mapping {1} [{2}] failed with message:\n{3}", appName!, type.Name, type.Namespace!, ex.Message);
+                logSetup?.Add(new LogSetup
+                (
+                    logSetup!.Count,
+                    nameof(Setup),
+                    nameof(MapEndpoints),
+                    LogLevel.Error,
+                    string.Format("/{0} [Namespace={1}]: {2}", type.Name, type.Namespace!, ex.Message)
+                ));
             }
         }
-
-        ConsoleLogger.Debug("{0} MapEndpoints finished with: EndPointsCount={1}", appName!, types.Count);
-    }
-    public static void SetConsoleLogger(bool? enableDebug = true, bool? enableSeverity = true, bool? enableLogStamps = true)
-    {
-        if (enableDebug.HasValue && (bool)enableDebug) ConsoleLogger.DebugEnable();
-
-        ConsoleLogger.Debug("{0} SetConsoleLogger invoked", appName!);
-
-        if (enableSeverity.HasValue && (bool)enableSeverity) ConsoleLogger.LogSeverity();
-        if (enableLogStamps.HasValue && (bool)enableLogStamps) ConsoleLogger.LogTimeStamp();
-
-        ConsoleLogger.Debug("{0} SetConsoleLogger finished with:\n- DebugEnabled: {1}\n- LogSeverityEnabled: {2}\n- LogTimeStampEnabled: {3}",
-            appName!, ConsoleLogger.DebugEnabled(), ConsoleLogger.LogSeverityEnabled(), ConsoleLogger.LogTimeStampEnabled());
     }
     public static void ConfigureSwagger(WebApplicationBuilder builder)
     {
         if (!builder.Environment.IsDevelopment()) return;
 
-        ConsoleLogger.Debug("{0} AddSwagger invoked", appName!);
-
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen();
 
-        ServiceDescriptor? swaggerService = builder.Services
-                .FirstOrDefault(service => service.ServiceType == typeof(ISwaggerProvider));
-
+        ServiceDescriptor? swaggerService = builder.Services.FirstOrDefault(service => service.ServiceType == typeof(ISwaggerProvider));
         swaggerEnabled = swaggerService != null;
 
-        ConsoleLogger.Debug("{0} AddSwagger finished with: {1}", appName!, swaggerEnabled ? "OK" : "NotOk");
+        logSetup?.Add(new LogSetup
+        (
+            logSetup!.Count,
+            nameof(Setup),
+            nameof(ConfigureSwagger),
+            LogLevel.Debug,
+            string.Format("Swagger [Enabled={0}]", swaggerEnabled)
+        ));
     }
     public static void StartSwagger(WebApplication app)
     {
         if (!app.Environment.IsDevelopment() || !swaggerEnabled) return;
 
-        ConsoleLogger.Debug("{0} StartSwagger invoked", appName!);
-
         app.UseSwagger();
         app.UseSwaggerUI();
-
-        ConsoleLogger.Debug("{0} StartSwagger finished.", appName!);
     }
 }
