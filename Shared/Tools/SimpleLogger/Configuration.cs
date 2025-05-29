@@ -2,14 +2,14 @@
 namespace Shared.Tools.SimpleLogger;
 public class Configuration
 {
-    public LogLevel MinLogLevel { get; set; } = LogLevel.Information;
+    public LogLevel MinimumLogLevel { get; set; } = LogLevel.Information;
     public bool IncludeTimestamp { get; set; } = true;
-    public bool IncludeSeverity { get; set; } = true;
-    public bool EnableFileLogging { get; set; } = false;
+    public bool IncludeLogLevel { get; set; } = true;
+    public bool IsFileLoggingEnabled { get; set; } = false;
     public string? LogFilePath { get; set; }
-    public StreamWriter? FileWriter { get; set; }
-public override string ToString()
+    public override string ToString()
     {
-        return $"MinLogLevel={MinLogLevel}, IncludeTimestamp={IncludeTimestamp}, IncludeSeverity={IncludeSeverity}, EnableFileLogging={EnableFileLogging}, LogFilePath={LogFilePath}";
+        return string.Format("MinimumLogLevel={0} IncludeTimestamp={1} IncludeLogLevel={2} IsFileLoggingEnabled={3} LogFilePath={4}",
+            MinimumLogLevel, IncludeTimestamp, IncludeLogLevel, IsFileLoggingEnabled, LogFilePath);
     }
 }

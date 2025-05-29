@@ -3,24 +3,38 @@ namespace Shared.Tools.SimpleLogger;
 
 public class Provider : ILoggerProvider
 {
+    private readonly StreamWriter _writer;
     private readonly Configuration _config;
 
     public Provider(Configuration config)
     {
-        _config = config;
+        if (!config!.IsFileLoggingEnabled) return;
 
-        if (_config.EnableFileLogging && _config.FileWriter == null)
+        _config = config;
+        string filePath = _config.LogFilePath ?? Path.Combine(AppContext.BaseDirectory, "log.txt");
+
+        string? directory = Path.GetDirectoryName(filePath);
+        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
         {
-            string? filePath = _config.LogFilePath ?? Path.Combine(AppContext.BaseDirectory, "log.txt");
-            _config.FileWriter = new StreamWriter(filePath, append: true) { AutoFlush = true };
+            Directory.CreateDirectory(directory);
         }
-    }
+
+        _writer = new StreamWriter(new FileStream(
+            filePath,
+            FileMode.Append,
+            FileAccess.Write,
+            FileShare.ReadWrite), // <-- Allow others to read/write concurrently
+            System.Text.Encoding.UTF8)
+                {
+                    AutoFlush = true
+                };
+            }
 
     public ILogger CreateLogger(string categoryName)
-        => new Logger(categoryName, _config);
+        => new Logger(categoryName, _config, _writer);
 
     public void Dispose()
     {
-        _config.FileWriter?.Dispose();
+        _writer?.Dispose();
     }
 }

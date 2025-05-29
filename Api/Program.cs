@@ -1,9 +1,7 @@
 using Api.System;
 
-//Setup.SetConsoleLogger();
-
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
-Setup.ConfigureLogger(builder, enableFileLogging: false);
+Setup.ConfigureLogger(builder);
 
 Setup.RegisterDatabases(builder);
 Setup.ConfigureSwagger(builder);

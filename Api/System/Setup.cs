@@ -29,38 +29,27 @@ public sealed class LogSetup
 }
 public static class Setup
 {
-    private static List<LogSetup>? logSetup = new();
+    private static List<LogSetup>? logTable = new();
     private static bool swaggerEnabled = false;
     private static readonly string? appName = string.Format("[{0}]", typeof(Setup).FullName);
     public static void LogAndFlush(IServiceProvider services)
     {
         ILogger logger = services.GetRequiredService<ILoggerFactory>().CreateLogger("Setup");
-        logger.LogInformation("ba");
-        foreach (var entry in logSetup!)
+        foreach (LogSetup? entry in logTable!)
         {
-            bool enabled= logger.IsEnabled((LogLevel)entry.LogLevel!);
-            bool enabled2 = logger.IsEnabled(LogLevel.Information);
-            logger.LogDebug(string.Format("{0}.{1}: {2}", entry.ClassName, entry.Method, entry.Message), entry.Parameters);
+            logger.LogInformation(string.Format("[{0}]  {1}",entry.Method, entry.Message), entry.Parameters);
         }
 
-        logSetup.Clear();
+        logTable.Clear();
     }
     
-    public static void ConfigureLogger(WebApplicationBuilder builder, bool? enableDebug = true, bool? enableSeverity = true, bool? enableLogStamps = true, bool? enableFileLogging = true)
+    public static void ConfigureLogger(WebApplicationBuilder builder)
     {
-        Configuration logConfig = new()
-        {
-            // To-Do : read from appsettings.json
-            MinLogLevel = enableDebug.HasValue && (bool)enableDebug ? LogLevel.Debug : LogLevel.Information,
-            IncludeSeverity = enableSeverity.HasValue && (bool)enableSeverity,
-            IncludeTimestamp = enableLogStamps.HasValue && (bool)enableLogStamps,
-            EnableFileLogging = enableFileLogging.HasValue && (bool)enableFileLogging,
-            LogFilePath = Path.Combine(AppContext.BaseDirectory, "logs.txt")
-        };
+        Configuration config = new();
+        builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);       
+        builder.Configuration.GetSection("Logging:SimpleLogger").Bind(config);
 
-        Provider provider = new(logConfig);
-
-        builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
+        Provider provider = new(config);
         builder.Logging.ClearProviders();
         builder.Logging.AddProvider(provider);
 
@@ -69,22 +58,22 @@ public static class Setup
             logging.LoggingFields = Microsoft.AspNetCore.HttpLogging.HttpLoggingFields.All;
         });
 
-        logSetup?.Add(new LogSetup
+        logTable?.Add(new LogSetup
         (
-            logSetup!.Count,
+            logTable!.Count,
             nameof(Setup),
             nameof(ConfigureLogger),
             LogLevel.Debug,
-            string.Format("Logger: Provider={0} [Config={1}]", provider, logConfig)
+            string.Format("\nProvider={0}\nConfig={1}", provider, config)
         ));
     }
     public static void EnableHttpLogging(WebApplication app)
     {
         app.UseHttpLogging();
 
-        logSetup?.Add(new LogSetup
+        logTable?.Add(new LogSetup
         (
-            logSetup!.Count,
+            logTable!.Count,
             nameof(Setup),
             nameof(EnableHttpLogging),
             LogLevel.Debug,
@@ -100,9 +89,9 @@ public static class Setup
         ServiceDescriptor? database = builder.Services
           .FirstOrDefault(service => service.ServiceType == typeof(CastleContext));
         
-        logSetup?.Add(new LogSetup
+        logTable?.Add(new LogSetup
         (
-            logSetup!.Count,
+            logTable!.Count,
             nameof(Setup),
             nameof(RegisterDatabases),
             LogLevel.Debug,
@@ -127,9 +116,9 @@ public static class Setup
                 // Register the routes for the handler
                 request?.ConfigureRoutes(app);
 
-                logSetup?.Add(new LogSetup
+                logTable?.Add(new LogSetup
                 (
-                    logSetup!.Count,
+                    logTable!.Count,
                     nameof(Setup),
                     nameof(MapEndpoints),
                     LogLevel.Debug,
@@ -138,9 +127,9 @@ public static class Setup
             }
             catch (Exception ex)
             {
-                logSetup?.Add(new LogSetup
+                logTable?.Add(new LogSetup
                 (
-                    logSetup!.Count,
+                    logTable!.Count,
                     nameof(Setup),
                     nameof(MapEndpoints),
                     LogLevel.Error,
@@ -159,9 +148,9 @@ public static class Setup
         ServiceDescriptor? swaggerService = builder.Services.FirstOrDefault(service => service.ServiceType == typeof(ISwaggerProvider));
         swaggerEnabled = swaggerService != null;
 
-        logSetup?.Add(new LogSetup
+        logTable?.Add(new LogSetup
         (
-            logSetup!.Count,
+            logTable!.Count,
             nameof(Setup),
             nameof(ConfigureSwagger),
             LogLevel.Debug,
