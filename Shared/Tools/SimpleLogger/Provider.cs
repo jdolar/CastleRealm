@@ -1,10 +1,9 @@
 ﻿using Microsoft.Extensions.Logging;
 namespace Shared.Tools.SimpleLogger;
-
 public class Provider : ILoggerProvider
 {
-    private readonly StreamWriter _writer;
-    private readonly Configuration _config;
+    private readonly StreamWriter? _writer;
+    private readonly Configuration? _config;
 
     public Provider(Configuration config)
     {
@@ -14,24 +13,20 @@ public class Provider : ILoggerProvider
         string filePath = _config.LogFilePath ?? Path.Combine(AppContext.BaseDirectory, "log.txt");
 
         string? directory = Path.GetDirectoryName(filePath);
-        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
 
         _writer = new StreamWriter(new FileStream(
             filePath,
             FileMode.Append,
             FileAccess.Write,
-            FileShare.ReadWrite), // <-- Allow others to read/write concurrently
+            FileShare.ReadWrite),
             System.Text.Encoding.UTF8)
-                {
-                    AutoFlush = true
-                };
-            }
+        {
+            AutoFlush = true
+        };
+    }
 
     public ILogger CreateLogger(string categoryName)
-        => new Logger(categoryName, _config, _writer);
+        => new Logger(categoryName, _config!, _writer);
 
     public void Dispose()
     {

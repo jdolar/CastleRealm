@@ -20,6 +20,13 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+	  <Compile Remove="logs\**" />
+	  <Content Remove="logs\**" />
+	  <EmbeddedResource Remove="logs\**" />
+	  <None Remove="logs\**" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.3" />
 	</ItemGroup>
 
