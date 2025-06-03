@@ -3,7 +3,7 @@
 public sealed class Weather
 {
     private readonly string[] summaries = ["Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"];
-    public Shared.Responses.Info.Weather Get()
+    public Shared.Responses.Info.Weather Get(string? city = null)
     {
         Shared.Responses.Info.Weather[] forecast = Enumerable.Range(1, 5).Select(index =>
             new Shared.Responses.Info.Weather

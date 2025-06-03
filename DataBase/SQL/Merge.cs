@@ -1,11 +1,9 @@
 ﻿namespace DataBase.SQL;
-
 public static class Merge
 {
     /*
         0 - TableName
         1 - Field 1 Name
-        2 - Field 2 Name
     */
 
     public static string ByValue { get; private set; } = @"

@@ -37,16 +37,16 @@ public static class Setup
         ILogger logger = services.GetRequiredService<ILoggerFactory>().CreateLogger("Setup");
         foreach (LogSetup? entry in logTable!)
         {
-            logger.LogInformation(string.Format("[{0}]  {1}",entry.Method, entry.Message), entry.Parameters);
+            logger.LogInformation("[{0}]  {1}{2}", entry.Method, entry.Message, entry.Parameters);
         }
 
         logTable.Clear();
     }
-    
+
     public static void ConfigureLogger(WebApplicationBuilder builder)
     {
         Configuration config = new();
-        builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);       
+        builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
         builder.Configuration.GetSection("Logging:SimpleLogger").Bind(config);
 
         Provider provider = new(config);
@@ -88,7 +88,7 @@ public static class Setup
 
         ServiceDescriptor? database = builder.Services
           .FirstOrDefault(service => service.ServiceType == typeof(CastleContext));
-        
+
         logTable?.Add(new LogSetup
         (
             logTable!.Count,
@@ -161,7 +161,21 @@ public static class Setup
     {
         if (!app.Environment.IsDevelopment() || !swaggerEnabled) return;
 
-        app.UseSwagger();
-        app.UseSwaggerUI();
+        try
+        {
+            app.UseSwagger();
+            app.UseSwaggerUI();
+        }
+        catch (Exception ex)
+        {
+            logTable?.Add(new LogSetup
+            (
+                logTable!.Count,
+                nameof(Setup),
+                nameof(StartSwagger),
+                LogLevel.Error,
+                string.Format("Swagger UI Error: {0}", ex.Message)
+            ));
+        }
     }
 }
