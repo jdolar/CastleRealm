@@ -5,7 +5,6 @@ public sealed class Get : IPayLoad
     public int? Id { get; set; }
     public object GetDefaultPayload() => new Get
     {
-        Name = Uri.EscapeDataString("Default Castle Name"),
         Id = 1
     };
 }

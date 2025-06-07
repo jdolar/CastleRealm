@@ -5,7 +5,6 @@ public sealed class Delete : IPayLoad
     public int? Id { get; set; }
     public object GetDefaultPayload() => new Delete
     {
-        Name = Uri.EscapeDataString("Default Castle Name"),
         Id = 1
     };
 }

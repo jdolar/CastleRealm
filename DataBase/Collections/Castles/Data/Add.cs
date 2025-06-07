@@ -37,6 +37,11 @@ public sealed class Add(CastleContext dbContext)
                 });
                 locationId = loc.Entity.Id;
             }
+            // TO - DO remove this ugly workaround and actualy find a way to handle Location !!
+            else
+            {
+                locationId = 1; // Default location ID, should be replaced with a proper handling
+            }
 
             // Save all entities at once
             await dbContext.SaveChangesAsync();
