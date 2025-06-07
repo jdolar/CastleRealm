@@ -1,118 +1,109 @@
-﻿using System.Reflection;
-using System.Text;
-using System.Text.Json;
+﻿using System.Text.Json;
 using Api;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
+using DataBase.Collections.Castles;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Shared.Requests;
 using Xunit;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using ApiClient;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Shared.Tools;
+using Shared;
 namespace UnitTests.Api;
 public class ApiSmokeTests : IClassFixture<WebApplicationFactory<Program>>, IAsyncLifetime
 {
-    private readonly HttpClient _client;
+    private readonly WebApplicationFactory<Program> _factory;
+    private IRestClient _client;
+    private readonly Swagger _swagger;
     private readonly ILogger<ApiSmokeTests> _logger;
-    private static readonly List<object[]> _endpoints = new();
+    private static List<Endpoint>? _endpoints = new();
     public ApiSmokeTests(WebApplicationFactory<Program> factory)
     {
-        _client = factory
-            .WithWebHostBuilder(builder =>
+        _factory = factory;
+        _factory = factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
             {
-                builder.UseEnvironment("Development"); // Ensure Swagger is enabled
-            })
-            .CreateClient();
+                services.RemoveAll<DbContextOptions<CastleContext>>();
+                services.AddDbContext<CastleContext>(options => options.UseSqlServer(SQLServer.DefaultConnection));
+                services.AddHttpClient<IRestClient, RestClient>("InternalApi")
+                   .ConfigurePrimaryHttpMessageHandler(() => factory.Server.CreateHandler())
+                   .ConfigureHttpClient(client =>
+                   {
+                       client.BaseAddress = new Uri("http://localhost");
+                   });
+            });
+        });
 
-        _logger = factory.Services.GetRequiredService<ILogger<ApiSmokeTests>>();
+        _client = _factory.Services.GetRequiredService<IRestClient>();
+        _logger = _factory.Services.GetRequiredService<ILogger<ApiSmokeTests>>();
+        _swagger = new(_client, _logger);
     }
-    public static IEnumerable<object[]> EndpointData => _endpoints;
+    //public static IEnumerable<object[]> EndpointData => _endpoints;
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     public async ValueTask InitializeAsync()
     {
-        if (_endpoints.Any())
+        if (_endpoints!.Any())
             return;
 
-        var swaggerEndpoints = await GetSwaggerEndpoints(_client);
+        // Run migrations against test DB
+        using IServiceScope scope = _factory.Services.CreateScope();
+        CastleContext db = scope.ServiceProvider.GetRequiredService<CastleContext>();
+        await db.Database.MigrateAsync();
 
-        foreach (var e in swaggerEndpoints)
-        {
-            _endpoints.Add(new object[] { e.Method, e.Path, e.OperationId });
-        }
+        bool isHealthy = await _swagger.GetStatus();
+        if (isHealthy) _endpoints = await _swagger.GetEndPoints()!;
     }
-    private static HttpContent? TryBuildPayload(Type? dtoType)
-    {
-        if (dtoType == null)
-            return null;
-
-        if (typeof(IPayLoad).IsAssignableFrom(dtoType))
-        {
-            IPayLoad? instance = Activator.CreateInstance(dtoType) as IPayLoad;
-            object? payload = instance?.GetDefaultPayload();
-            string json = JsonSerializer.Serialize(payload);
-            return new StringContent(json, Encoding.UTF8, "application/json");
-        }
-
-        return null;
-    }
-
     [Fact]
-    public async Task All_Endpoints_Should_Respond()
+    public async Task ApiSmoke_AllEndpoints_Success()
     {
         CancellationToken cancellationToken = default;
-        var endpoints = await GetSwaggerEndpoints(_client);
+        if (!_endpoints!.Any())
+            return;
 
-        foreach (var (method, path, operationId) in endpoints)
+        foreach (Endpoint endpoint in _endpoints!)
         {
-            HttpRequestMessage request = new(new HttpMethod(method), path);
+            string method = endpoint.Method.ToUpperInvariant();
+            string uri;
+            
+            Type? type = _swagger.GetDtoType(endpoint.Operation);
+            if (type is null) continue;
 
-            if (method is "POST" or "PUT")
+            object? payLoad = _swagger.GetPayLoad(type!);
+            if (payLoad is null) continue;
+
+            uri = method switch
             {
-                Type? dtoType = LookupDtoForOperationId(operationId);
-                HttpContent? content = TryBuildPayload(dtoType);
-                if (content != null)
-                {
-                    request.Content = content;
-                }
-            }
-           
-            HttpResponseMessage? response = await _client.SendAsync(request, cancellationToken);
-            Assert.True((int)response.StatusCode < 500, $"Failed: {method} {path} → {(int)response.StatusCode}");
-        }
-    }
-    private Type? LookupDtoForOperationId(string operationId)
-    {
-        Type? interfaceType = typeof(IPayLoad);
-        Assembly? assembly = interfaceType.Assembly;
+                "DELETE" or "GET" => _swagger.GetUrlExtension(endpoint.Path, payLoad),
+                _ => endpoint.Path
+            };
 
-        Type? handlerType = assembly.GetTypes()
-            .Where(t => t.IsClass && !t.IsAbstract && !t.IsInterface)
-            .FirstOrDefault(t =>
-                interfaceType.IsAssignableFrom(t) &&
-                t.Name.Equals(operationId, StringComparison.OrdinalIgnoreCase));
-        
-        return handlerType;
-    }
-    private static async Task<IEnumerable<(string Method, string Path, string OperationId)>> GetSwaggerEndpoints(HttpClient client)
-    {
-        string json = await client.GetStringAsync("/swagger/v1/swagger.json");
-        using JsonDocument doc = JsonDocument.Parse(json);
-
-        JsonElement paths = doc.RootElement.GetProperty("paths");
-
-        var endpoints = new List<(string Method, string Path, string OperationId)>();
-
-        foreach (JsonProperty path in paths.EnumerateObject())
-        {
-            foreach (JsonProperty method in path.Value.EnumerateObject())
+            IResponse ? result = method switch
             {
-                // operationId is inside each method object
-                if (method.Value.TryGetProperty("operationId", out var opId))
-                {
-                    endpoints.Add((method.Name.ToUpperInvariant(), path.Name, opId.GetString()!));
-                }
-            }
-        }
+                "GET" => await _client.GetAsync<IResponse>(uri, cancellationToken),
+                "POST" => await _client.PostAsync<object, IResponse>(uri, payLoad!, cancellationToken),
+                "PUT" => await _client.PutAsync<object, IResponse>(uri, payLoad!, cancellationToken),
+                "DELETE" => await _client.GetAsync<IResponse>(uri, cancellationToken),
+                _ => throw new NotSupportedException($"Unsupported HTTP method: {method}")
+            };
 
-        return endpoints;
+            var logRequest = new
+            {
+                method = endpoint.Method,
+                path = uri,
+                operation = endpoint.Operation,
+                body = method switch
+                {
+                    "POST" or "PUT" => JsonSerializer.Deserialize<object>((JsonDocument)payLoad!),
+                    _ => string.Empty
+                }
+            };
+
+            _logger.LogInformation("REQUEST:\n{Request}", JsonSerializer.Serialize(logRequest, new JsonSerializerOptions { WriteIndented = true }));
+        }
     }
 }
+
+

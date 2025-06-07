@@ -4,7 +4,6 @@ public class Provider : ILoggerProvider
 {
     private readonly StreamWriter? _writer;
     private readonly Configuration? _config;
-
     public Provider(Configuration config)
     {
         if (!config!.IsFileLoggingEnabled) return;
@@ -13,6 +12,10 @@ public class Provider : ILoggerProvider
         string filePath = _config.LogFilePath ?? Path.Combine(AppContext.BaseDirectory, "log.txt");
 
         string? directory = Path.GetDirectoryName(filePath);
+        if(!Directory.Exists(directory))
+        {
+            Directory.CreateDirectory(directory!);
+        }
 
         _writer = new StreamWriter(new FileStream(
             filePath,
@@ -25,11 +28,6 @@ public class Provider : ILoggerProvider
         };
     }
 
-    public ILogger CreateLogger(string categoryName)
-        => new Logger(categoryName, _config!, _writer);
-
-    public void Dispose()
-    {
-        _writer?.Dispose();
-    }
+    public ILogger CreateLogger(string categoryName) => new Logger(categoryName, _config!, _writer);
+    public void Dispose() => _writer?.Dispose();
 }

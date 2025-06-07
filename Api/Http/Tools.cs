@@ -1,4 +1,5 @@
-﻿using Shared.Requests;
+﻿using Microsoft.AspNetCore.Mvc;
+using Shared.Requests;
 namespace Api.Http;
 public sealed class Tools
 {
@@ -8,7 +9,7 @@ public sealed class Tools
         readonly Domain.Tools.AesEncryption aes = new();
         public void ConfigureRoutes(IEndpointRouteBuilder app)
         {
-            app.MapPost(Path, (string input, string? aesKey, string? aesIv) =>
+            app.MapGet(Path, ([FromQuery] string input, string? aesKey, string? aesIv) =>
             {
                 return Results.Ok(aes.EncyrptString(input, aesKey, aesIv));
             })
@@ -23,7 +24,7 @@ public sealed class Tools
         readonly Domain.Tools.AesEncryption aes = new();
         public void ConfigureRoutes(IEndpointRouteBuilder app)
         {
-            app.MapPost(Path, (string input, string? aesKey, string? aesIv) =>
+            app.MapGet(Path, ([FromQuery] string input, string? aesKey, string? aesIv) =>
             {
                 return Results.Ok(aes.DecryptString(input, aesKey, aesIv));
             })
