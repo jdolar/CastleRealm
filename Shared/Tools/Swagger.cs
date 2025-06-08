@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Shared.Requests;
 using System.Reflection;
 using Shared.Api;
+
 namespace Shared.Tools;
 public sealed class Swagger
 {

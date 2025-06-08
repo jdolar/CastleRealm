@@ -1,9 +1,7 @@
-﻿using System.Reflection;
-using System.Text;
-using System.Text.Json;
+﻿using System.Text.Json;
 using Api;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
+using DataBase.Collections.Castles;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Shared.Requests;
@@ -17,32 +15,46 @@ using Shared.Api;
 namespace UnitTests.Api;
 public class ApiSmokeTests : IClassFixture<WebApplicationFactory<Program>>, IAsyncLifetime
 {
-    private readonly HttpClient _client;
+    private readonly WebApplicationFactory<Program> _factory;
+    private IRestClient _client;
+    private readonly Swagger _swagger;
     private readonly ILogger<ApiSmokeTests> _logger;
-    private static readonly List<object[]> _endpoints = new();
+    private static List<Endpoint>? _endpoints = new();
     public ApiSmokeTests(WebApplicationFactory<Program> factory)
     {
-        _client = factory
-            .WithWebHostBuilder(builder =>
+        _factory = factory;
+        _factory = factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
             {
-                builder.UseEnvironment("Development"); // Ensure Swagger is enabled
-            })
-            .CreateClient();
+                services.RemoveAll<DbContextOptions<CastleContext>>();
+                services.AddDbContext<CastleContext>(options => options.UseSqlServer(SQLServer.DefaultConnection));
+                services.AddHttpClient<IRestClient, RestClient>("InternalApi")
+                   .ConfigurePrimaryHttpMessageHandler(() => factory.Server.CreateHandler())
+                   .ConfigureHttpClient(client =>
+                   {
+                       client.BaseAddress = new Uri("http://localhost");
+                   });
+            });
+        });
 
-        _logger = factory.Services.GetRequiredService<ILogger<ApiSmokeTests>>();
+        _client = _factory.Services.GetRequiredService<IRestClient>();
+        _logger = _factory.Services.GetRequiredService<ILogger<ApiSmokeTests>>();
+        _swagger = new(_client, _logger);
     }
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     public async ValueTask InitializeAsync()
     {
-        if (_endpoints.Any())
+        if (_endpoints!.Any())
             return;
 
-        var swaggerEndpoints = await GetSwaggerEndpoints(_client);
+        // Run migrations against test DB
+        using IServiceScope scope = _factory.Services.CreateScope();
+        CastleContext db = scope.ServiceProvider.GetRequiredService<CastleContext>();
+        await db.Database.MigrateAsync();
 
-        foreach (var e in swaggerEndpoints)
-        {
-            _endpoints.Add(new object[] { e.Method, e.Path, e.OperationId });
-        }
+        bool isHealthy = await _swagger.GetStatus();
+        if (isHealthy) _endpoints = await _swagger.GetEndPoints()!;
     }
     private static HttpContent? TryBuildPayload(Type? dtoType)
     {

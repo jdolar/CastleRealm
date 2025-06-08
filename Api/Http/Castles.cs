@@ -1,7 +1,7 @@
 ﻿using DataBase.Collections.Castles;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Api;
-
+using Shared.Requests;
 namespace Api.Http;
 public sealed class Castles
 {
@@ -15,7 +15,7 @@ public sealed class Castles
                 Domain.Castles.Castle castle = new(db);
                 int? castleId = await castle.Add(request);
                 return Results.Ok(castleId);
-            })           
+            })
             .WithName(nameof(Add))
             .WithTags(nameof(Castles))
             .Produces<int>(StatusCodes.Status200OK);
@@ -35,10 +35,10 @@ public sealed class Castles
         public string Path { get; } = string.Format("{0}/{1}", nameof(Castles), nameof(Delete));
         public void ConfigureRoutes(IEndpointRouteBuilder app)
         {
-            app.MapDelete(Path, async (int id, CastleContext db) =>
+            app.MapDelete(Path, async ([FromQuery]int? id, string? name, CastleContext db) =>
             {
                 Domain.Castles.Castle castle = new(db);
-                await castle.Delete(id);
+                await castle.Delete(id, name);
                 return Results.Ok;
             })
             .WithName(nameof(Delete))
@@ -51,7 +51,7 @@ public sealed class Castles
         public string Path { get; } = string.Format("{0}/{1}", nameof(Castles), nameof(Get));
         public void ConfigureRoutes(IEndpointRouteBuilder app)
         {
-            app.MapGet(Path, async (int? id, string? name, CastleContext db) =>
+            app.MapGet(Path, async ([FromQuery] int? id, string? name, CastleContext db) =>
             {
                 Domain.Castles.Castle castle = new(db);
                 var response = await castle.Get(id, name);

@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 namespace Shared.Tools.SimpleLogger;
-
-public class Logger : ILogger
+public sealed class Logger : ILogger
 {
     private readonly string _category;
     private readonly Configuration _config;
@@ -28,8 +27,7 @@ public class Logger : ILogger
         string message = formatter(state, exception);
         string timestamp = _config.IncludeTimestamp ? $"{DateTime.UtcNow} - " : "";      
         string severity = _config.IncludeLogLevel ? $"[{logLevel}] " : "";
-        string category = _config.IncludeLogLevel ? $"[{_category}]" : "";
-
+        string category = _config.IncludeCategory ? $"[{_category}]" : "";
 
         string finalMessage = $"{timestamp}{severity}{category}{message}";
 
@@ -63,7 +61,7 @@ public class Logger : ILogger
         return NullScope.Instance;
     }
 }
-public class NullScope : IDisposable
+public sealed class NullScope : IDisposable
 {
     public static NullScope Instance { get; } = new NullScope();
     private NullScope() { }

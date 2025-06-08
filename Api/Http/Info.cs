@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Shared.Api;
+using Shared.Requests;
 using System.Reflection;
 namespace Api.Http;
 public class Info
@@ -17,7 +18,6 @@ public class Info
             .WithName(nameof(IIS))
             .WithTags(nameof(Info))
             .Produces<Shared.Responses.Info.IIS>(StatusCodes.Status200OK);
-
         }
     }
     public sealed class Weather : IEndPoint
@@ -26,9 +26,9 @@ public class Info
         readonly Domain.Info.Weather weather = new();
         public void ConfigureRoutes(IEndpointRouteBuilder app)
         {
-            app.MapGet(Path, () =>
+            app.MapGet(Path, ([FromQuery] string? city) =>
             {
-                return Results.Ok(weather.Get());
+                return Results.Ok(weather.Get(city));
             })
             .WithName(nameof(Weather))
             .WithTags(nameof(Info))

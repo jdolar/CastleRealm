@@ -38,7 +38,7 @@ public sealed class Add(CastleContext dbContext)
             //    });
             //    locationId = loc.Entity.Id;
             //}
-            
+
             // Save all entities at once
             await dbContext.SaveChangesAsync();
 
