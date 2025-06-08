@@ -1,6 +1,8 @@
-﻿namespace Shared.Responses.Info;
-public sealed class Ident
+﻿using Shared.Requests;
+namespace Shared.Responses.Info;
+public sealed class Ident : IResponse
 {
+
     public string? Started { get; set; }
     public string? Name { get; set; }
     public string? Title { get; set; }

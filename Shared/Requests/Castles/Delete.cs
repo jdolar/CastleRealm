@@ -1,10 +1,6 @@
 ﻿namespace Shared.Requests.Castles;
-public sealed class Delete : IPayLoad
+public sealed class Delete : IRequest
 {
     public string? Name { get; set; } = string.Empty;
-    public int? Id { get; set; }
-    public object GetDefaultPayload() => new Delete
-    {
-        Id = 1
-    };
+    public int Id { get; set; }
 }

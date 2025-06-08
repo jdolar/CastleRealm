@@ -1,10 +1,11 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Shared.Api;
 using Shared.Requests;
 using System.Reflection;
 namespace Api.Http;
 public class Info
 {
-    public sealed class IIS : IRequest
+    public sealed class IIS : IEndPoint
     {
         public string Path { get; } = string.Format("{0}/{1}", nameof(Info), nameof(IIS));
         readonly Domain.Info.IIS serverInfo = new();
@@ -19,7 +20,7 @@ public class Info
             .Produces<Shared.Responses.Info.IIS>(StatusCodes.Status200OK);
         }
     }
-    public sealed class Weather : IRequest
+    public sealed class Weather : IEndPoint
     {
         public string Path { get; } = string.Format("{0}/{1}", nameof(Info), nameof(Weather));
         readonly Domain.Info.Weather weather = new();
@@ -34,7 +35,7 @@ public class Info
             .Produces<Shared.Responses.Info.Weather>(StatusCodes.Status200OK);
         }
     }
-    public sealed class Ident : IRequest
+    public sealed class Ident : IEndPoint
     {
         public string Path { get; } = string.Format("{0}/{1}", nameof(Info), nameof(Ident));
         private static DateTime started { get; } = DateTime.UtcNow;

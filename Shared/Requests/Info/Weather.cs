@@ -1,6 +1,5 @@
 ﻿namespace Shared.Requests.Info;
-public sealed class Weather : IPayLoad
+public sealed class Weather : IRequest
 {
     public string? City { get; set; }
-    public object GetDefaultPayload() => new Weather();
 }

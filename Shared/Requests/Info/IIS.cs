@@ -1,5 +1,5 @@
 ﻿namespace Shared.Requests.Info;
-public sealed class IIS : IPayLoad
+public sealed class IIS : IRequest
 {
-    public object GetDefaultPayload() => new IIS();
+    public string? Website { get; set; }
 }

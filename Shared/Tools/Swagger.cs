@@ -3,6 +3,8 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Shared.Requests;
 using System.Reflection;
+using Shared.Api;
+
 namespace Shared.Tools;
 public sealed class Swagger
 {
@@ -19,7 +21,7 @@ public sealed class Swagger
     {
         try
         {
-            string? json = await _client.GetAsync<string>(_swaggerPath);
+            string? json = await _client.Get<string>(_swaggerPath);
             if (string.IsNullOrWhiteSpace(json))
             {
                 _logger.LogError("❌ Swagger JSON is empty or null");
@@ -88,7 +90,7 @@ public sealed class Swagger
         {
             _logger.LogInformation("Configuring HttpClient to retrieve Swagger endpoints...");
 
-            string? json = await _client.GetAsync<string>("/swagger/v1/swagger.json");
+            string? json = await _client.Get<string>("/swagger/v1/swagger.json");
             if (string.IsNullOrWhiteSpace(json))
             {
                 _logger.LogError("Swagger JSON is empty or null.");
@@ -145,7 +147,7 @@ public sealed class Swagger
     }
     public Type? GetDtoType(string operationId)
     {
-        Type? interfaceType = typeof(IPayLoad);
+        Type? interfaceType = typeof(IRequest);
         Assembly? assembly = interfaceType.Assembly;
 
         Type? handlerType = assembly.GetTypes()
@@ -193,8 +195,8 @@ public sealed class Swagger
     }
     private object? GetDefaultValue(Type type)
     {
-        if (type == typeof(string)) return "test";
-        if (type == typeof(int)) return 42;
+        if (type == typeof(string)) return _randomGenerator.NextString(10);
+        if (type == typeof(int)) return 1;
         if (type == typeof(DateTime)) return DateTime.UtcNow;
         if (type == typeof(bool)) return true;
         if (type.IsEnum) return Enum.GetValues(type).GetValue(0);

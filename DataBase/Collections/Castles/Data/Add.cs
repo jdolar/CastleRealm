@@ -26,22 +26,18 @@ public sealed class Add(CastleContext dbContext)
             int? typeId = await ExecuteCustomMergeAsync(dbContext.Database, nameof(Type), request.Type!);
 
             // Location
-            int? locationId = null;
-            string[]? locationParsed = request.Location?.Split(',');
-            if (locationParsed?.Length > 0)
-            {
-                EntityEntry<Location> loc = await dbContext.Location.AddAsync(new Location()
-                {
-                    X = Convert.ToInt32(locationParsed[0]),
-                    Y = Convert.ToInt32(locationParsed[1]),
-                });
-                locationId = loc.Entity.Id;
-            }
             // TO - DO remove this ugly workaround and actualy find a way to handle Location !!
-            else
-            {
-                locationId = 1; // Default location ID, should be replaced with a proper handling
-            }
+            int? locationId = 1;
+            //string[]? locationParsed = request.Location?.Split(',');
+            //if (locationParsed?.Length > 0)
+            //{
+            //    EntityEntry<Location> loc = await dbContext.Location.AddAsync(new Location()
+            //    {
+            //        X = Convert.ToInt32(locationParsed[0]),
+            //        Y = Convert.ToInt32(locationParsed[1]),
+            //    });
+            //    locationId = loc.Entity.Id;
+            //}
 
             // Save all entities at once
             await dbContext.SaveChangesAsync();

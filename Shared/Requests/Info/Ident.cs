@@ -1,5 +1,5 @@
 ﻿namespace Shared.Requests.Info;
-public sealed class Ident : IPayLoad
+public sealed class Ident : IRequest
 {
-    public object GetDefaultPayload() => new Ident();
+    public bool? IsAdmin { get; set; } = null!;
 }
