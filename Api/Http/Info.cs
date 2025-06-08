@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Shared.Api;
-using Shared.Requests;
 using System.Reflection;
 namespace Api.Http;
 public class Info

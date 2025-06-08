@@ -62,7 +62,7 @@ public sealed class RestClient(HttpClient httpClient) : IRestClient
             return default;
         }
     }
-    public async Task<bool> DeleteAsync(string uri, CancellationToken cancellationToken = default)
+    public async Task<TResponse?> Delete<TRequest, TResponse>(string uri, TRequest data, CancellationToken cancellationToken = default)
     {
         try
         {
