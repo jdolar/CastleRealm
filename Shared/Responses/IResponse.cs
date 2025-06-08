@@ -1,4 +1,4 @@
 ﻿namespace Shared.Requests;
-public interface IRequest
+public interface IResponse
 {
 }

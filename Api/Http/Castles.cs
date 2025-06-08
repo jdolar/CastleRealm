@@ -1,9 +1,11 @@
 ﻿using DataBase.Collections.Castles;
-using Shared.Requests;
+using Microsoft.AspNetCore.Mvc;
+using Shared.Api;
+
 namespace Api.Http;
 public sealed class Castles
 {
-    public sealed class Add : IRequest
+    public sealed class Add //: IEndPoint
     {
         public string Path { get; } = string.Format("{0}/{1}", nameof(Castles), nameof(Add));
         public void ConfigureRoutes(IEndpointRouteBuilder app)
@@ -16,7 +18,7 @@ public sealed class Castles
             })           
             .WithName(nameof(Add))
             .WithTags(nameof(Castles))
-            .Produces<Shared.Responses.BaseResponse>(StatusCodes.Status200OK);
+            .Produces<int>(StatusCodes.Status200OK);
 
             app.MapPost(string.Format("{0}TestData", Path), async (int count, CastleContext db) =>
             {
@@ -25,10 +27,10 @@ public sealed class Castles
                 return Results.Ok(castleId);
             })
             .WithTags(nameof(Tools))
-            .Produces<Shared.Responses.BaseResponse>(StatusCodes.Status200OK);
+            .Produces<int>(StatusCodes.Status200OK);
         }
     }
-    public sealed class Delete : IRequest
+    public sealed class Delete// : IEndPoint
     {
         public string Path { get; } = string.Format("{0}/{1}", nameof(Castles), nameof(Delete));
         public void ConfigureRoutes(IEndpointRouteBuilder app)
@@ -41,10 +43,10 @@ public sealed class Castles
             })
             .WithName(nameof(Delete))
             .WithTags(nameof(Castles))
-            .Produces<Shared.Responses.BaseResponse>(StatusCodes.Status200OK);
+            .Produces<bool>(StatusCodes.Status200OK);
         }
     }
-    public sealed class Get : IRequest
+    public sealed class Get// : IEndPoint
     {
         public string Path { get; } = string.Format("{0}/{1}", nameof(Castles), nameof(Get));
         public void ConfigureRoutes(IEndpointRouteBuilder app)
@@ -57,7 +59,7 @@ public sealed class Castles
             })
             .WithName(nameof(Get))
             .WithTags(nameof(Castles))
-            .Produces<Shared.Responses.BaseResponse>(StatusCodes.Status200OK);
+            .Produces<List<Shared.Responses.Castles.Get>>(StatusCodes.Status200OK);
         }
     }
 }

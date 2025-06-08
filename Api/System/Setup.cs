@@ -1,6 +1,7 @@
 ﻿using DataBase.Collections.Castles;
 using Microsoft.EntityFrameworkCore;
-using Shared.Requests;
+using Shared.Api;
+using Shared.Tools;
 using Shared.Tools.SimpleLogger;
 using Swashbuckle.AspNetCore.Swagger;
 using System.Reflection;
@@ -103,7 +104,7 @@ public static class Setup
         // Get all types in the current assembly that implement IRouteHandler
         List<Type> types = Assembly.GetExecutingAssembly()
                                      .GetTypes()
-                                     .Where(t => typeof(IRequest).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract)
+                                     .Where(t => typeof(IEndPoint).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract)
                                      .ToList();
 
         foreach (Type type in types)
@@ -111,7 +112,7 @@ public static class Setup
             try
             {
                 // Create an instance of the route handler
-                IRequest? request = Activator.CreateInstance(type) as IRequest;
+                IEndPoint? request = Activator.CreateInstance(type) as IEndPoint;
 
                 // Register the routes for the handler
                 request?.ConfigureRoutes(app);

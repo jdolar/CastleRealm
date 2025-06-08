@@ -1,7 +1,7 @@
-﻿using Shared.Requests;
+﻿using Shared.Api;
 using System.Reflection;
 namespace Api.Http;
-public sealed class Index : IRequest
+public sealed class Index : IEndPoint
 {
     private static DateTime started { get; } = DateTime.UtcNow;
     private static Assembly assembly = Assembly.GetExecutingAssembly();

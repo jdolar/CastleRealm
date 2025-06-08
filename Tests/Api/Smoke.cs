@@ -8,6 +8,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Shared.Requests;
 using Xunit;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using ApiClient;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Shared.Tools;
+using System.Drawing;
+using Shared.Api;
 namespace UnitTests.Api;
 public class ApiSmokeTests : IClassFixture<WebApplicationFactory<Program>>, IAsyncLifetime
 {
@@ -25,7 +31,6 @@ public class ApiSmokeTests : IClassFixture<WebApplicationFactory<Program>>, IAsy
 
         _logger = factory.Services.GetRequiredService<ILogger<ApiSmokeTests>>();
     }
-    public static IEnumerable<object[]> EndpointData => _endpoints;
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     public async ValueTask InitializeAsync()
     {
@@ -46,73 +51,62 @@ public class ApiSmokeTests : IClassFixture<WebApplicationFactory<Program>>, IAsy
 
         if (typeof(IPayLoad).IsAssignableFrom(dtoType))
         {
-            IPayLoad? instance = Activator.CreateInstance(dtoType) as IPayLoad;
-            object? payload = instance?.GetDefaultPayload();
-            string json = JsonSerializer.Serialize(payload);
-            return new StringContent(json, Encoding.UTF8, "application/json");
-        }
+            string method = endpoint.Method.ToUpperInvariant();
 
-        return null;
-    }
+            Type? type = _swagger.GetDtoType(endpoint.Operation);
+            if (type is null) continue;
 
-    [Fact]
-    public async Task All_Endpoints_Should_Respond()
-    {
-        CancellationToken cancellationToken = default;
-        var endpoints = await GetSwaggerEndpoints(_client);
+            object? payLoad = _swagger.GetPayLoad(type!);
+            if (payLoad is null) continue;
 
-        foreach (var (method, path, operationId) in endpoints)
-        {
-            HttpRequestMessage request = new(new HttpMethod(method), path);
-
-            if (method is "POST" or "PUT")
+            string uri = method switch
             {
-                Type? dtoType = LookupDtoForOperationId(operationId);
-                HttpContent? content = TryBuildPayload(dtoType);
-                if (content != null)
+                "DELETE" or "GET" => _swagger.GetUrlExtension(endpoint.Path, payLoad),
+                _ => endpoint.Path
+            };
+
+            try
+            {
+                IResponse? result = method switch
                 {
-                    request.Content = content;
-                }
+                    "GET" => await _client.Get<object, IResponse>(uri, payLoad!, cancellationToken),
+                    "POST" => await _client.Post<object, IResponse>(uri, payLoad!, cancellationToken),
+                    "PUT" => await _client.Put<object, IResponse>(uri, payLoad!, cancellationToken),
+                    "DELETE" => await _client.Get<object, IResponse>(uri, payLoad!, cancellationToken),
+                    _ => throw new NotSupportedException($"Unsupported HTTP method: {method}")
+                };
+
+                var logRequest = new
+                {
+                    method = endpoint.Method,
+                    path = uri,
+                    operation = endpoint.Operation,
+                    body = method switch
+                    {
+                        "POST" or "PUT" => JsonSerializer.Deserialize<object>((JsonDocument)payLoad!),
+                        _ => string.Empty
+                    }
+                };
+
+                _logger.LogInformation("REQUEST:\n{Request}", JsonSerializer.Serialize(logRequest, new JsonSerializerOptions { WriteIndented = true }));
+
             }
-           
-            HttpResponseMessage? response = await _client.SendAsync(request, cancellationToken);
-            Assert.True((int)response.StatusCode < 500, $"Failed: {method} {path} → {(int)response.StatusCode}");
-        }
-    }
-    private Type? LookupDtoForOperationId(string operationId)
-    {
-        Type? interfaceType = typeof(IPayLoad);
-        Assembly? assembly = interfaceType.Assembly;
-
-        Type? handlerType = assembly.GetTypes()
-            .Where(t => t.IsClass && !t.IsAbstract && !t.IsInterface)
-            .FirstOrDefault(t =>
-                interfaceType.IsAssignableFrom(t) &&
-                t.Name.Equals(operationId, StringComparison.OrdinalIgnoreCase));
-        
-        return handlerType;
-    }
-    private static async Task<IEnumerable<(string Method, string Path, string OperationId)>> GetSwaggerEndpoints(HttpClient client)
-    {
-        string json = await client.GetStringAsync("/swagger/v1/swagger.json");
-        using JsonDocument doc = JsonDocument.Parse(json);
-
-        JsonElement paths = doc.RootElement.GetProperty("paths");
-
-        var endpoints = new List<(string Method, string Path, string OperationId)>();
-
-        foreach (JsonProperty path in paths.EnumerateObject())
-        {
-            foreach (JsonProperty method in path.Value.EnumerateObject())
+            catch (Exception ex)
             {
-                // operationId is inside each method object
-                if (method.Value.TryGetProperty("operationId", out var opId))
+                var logRequest = new
                 {
-                    endpoints.Add((method.Name.ToUpperInvariant(), path.Name, opId.GetString()!));
-                }
+                    method = endpoint.Method,
+                    path = uri,
+                    operation = endpoint.Operation,
+                    body = method switch
+                    {
+                        "POST" or "PUT" => JsonSerializer.Deserialize<object>((JsonDocument)payLoad!),
+                        _ => string.Empty
+                    }
+                };
+
+                _logger.LogError(ex, "❌ Error calling {0} {1}\n{2}",endpoint.Method, uri, JsonSerializer.Serialize(logRequest, new JsonSerializerOptions { WriteIndented = true }));
             }
         }
-
-        return endpoints;
     }
 }
