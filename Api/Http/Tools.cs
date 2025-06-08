@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Shared.Api;
-using Shared.Requests;
 namespace Api.Http;
 public sealed class Tools
 {

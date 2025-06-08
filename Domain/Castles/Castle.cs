@@ -18,11 +18,10 @@ public class Castle(CastleContext dbContext)
         return 1;
     }
 
-    public async Task<int> Delete(int? id = null, string? name = null)
+    public async Task<bool> Delete(int? id = null, string? name = null)
     {
-        DataBase.Collections.Castles.Data.Delete delete = new(dbContext);
-        await delete.Single(id, name);
-        return 1;
+        DataBase.Collections.Castles.Data.Delete delete = new(dbContext);      
+        return await delete.Single(id, name);
     }
 
     public async Task<List<DataBase.Collections.Castles.Models.Castle>> Get(int? id = null, string? name = null)
