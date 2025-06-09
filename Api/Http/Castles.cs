@@ -5,7 +5,7 @@ using Shared.Api;
 namespace Api.Http;
 public sealed class Castles
 {
-    public sealed class Add : IEndPoint
+    public sealed class Add //: IEndPoint
     {
         public string Path { get; } = string.Format("{0}/{1}", nameof(Castles), nameof(Add));
         public void ConfigureRoutes(IEndpointRouteBuilder app)
@@ -18,7 +18,7 @@ public sealed class Castles
             })
             .WithName(nameof(Add))
             .WithTags(nameof(Castles))
-            .Produces<int>(StatusCodes.Status200OK);
+            .Produces<Shared.Responses.Castles.Add>(StatusCodes.Status200OK);
 
             app.MapPost(string.Format("{0}TestData", Path), async (int count, CastleContext db) =>
             {
