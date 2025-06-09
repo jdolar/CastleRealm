@@ -12,8 +12,8 @@ public sealed class Get(CastleContext dbContext)
         if (id.HasValue)
         {
             Models.Castle? existing = await dbContext.Castle.FindAsync(id);
-            if (existing != null)
-                castles.Add(existing);
+            if (existing != null) castles.Add(existing);
+            return castles;
         }
 
         // 2.) Search by name
@@ -22,7 +22,7 @@ public sealed class Get(CastleContext dbContext)
             List<Name>? existingName = await dbContext.Name.Where(x => x.Value == name).ToListAsync();
             for (int i = 0; i < existingName?.Count; i++)
             {
-                Models.Castle? existing = await dbContext.Castle.FindAsync(existingName[i].Id);
+                Models.Castle? existing = await dbContext.Castle.FindAsync(existingName[i].CastleId);
                 if (existing != null) castles!.Add(existing);
 
             }
