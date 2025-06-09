@@ -1,38 +1,30 @@
-﻿using System.Text;
+﻿using Microsoft.Extensions.Logging;
+using System.Text;
 using System.Text.Json;
 namespace ApiClient;
-public sealed class RestClient(HttpClient httpClient) : IRestClient
+public sealed class RestClient(HttpClient httpClient, ILogger<RestClient> logger) : IRestClient
 {
     private readonly HttpClient _httpClient = httpClient;
+    private readonly ILogger<RestClient> _logger = logger;
     private readonly JsonSerializerOptions _serializerOptions = new(JsonSerializerDefaults.Web);
     private readonly Encoding _encoding = Encoding.UTF8;
     private const string _mediaType = "application/json";
     public async Task<T?> Get<T>(string uri, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            HttpResponseMessage response = await _httpClient.GetAsync(uri, cancellationToken);    
-            
-          //  if (typeof(T) == typeof(string))  return (T)(object)response;
-
-            return await HandleResponse<T>(response, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[GET] Error calling {uri}: {ex.Message}");
-            return default;
-        }
+        return await Get<T, T>(uri, default, cancellationToken);
     }
-    public async Task<TResponse?> Get<TRequest, TResponse>(string uri, TRequest data, CancellationToken cancellationToken = default)
+    public async Task<TResponse?> Get<TRequest, TResponse>(string uri, TRequest? data, CancellationToken cancellationToken = default)
     {
         try
         {
+            if (data is not null) uri = Helper.GetUrlExtension(uri, data);
+
             HttpResponseMessage response = await _httpClient.GetAsync(uri, cancellationToken);
             return await HandleResponse<TResponse>(response, cancellationToken);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[GET] Error calling {uri}: {ex.Message}");
+            _logger.LogError(ex, "[GET] Error calling {0}: {1}", uri, ex.Message);
             return default;
         }
     }
@@ -40,12 +32,12 @@ public sealed class RestClient(HttpClient httpClient) : IRestClient
     {
         try
         {
-            HttpResponseMessage response = await _httpClient.PostAsync(uri, Encode(data), cancellationToken);         
+            HttpResponseMessage response = await _httpClient.PostAsync(uri, Serelize(data), cancellationToken);         
             return await HandleResponse<TResponse>(response, cancellationToken);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[POST] Error calling {uri}: {ex.Message}");
+            _logger.LogError(ex, "[POST] Error calling {0}: {1}", uri, ex.Message);
             return default;
         }
     }
@@ -53,32 +45,29 @@ public sealed class RestClient(HttpClient httpClient) : IRestClient
     {
         try
         {
-            HttpResponseMessage response = await _httpClient.PutAsync(uri, Encode(data), cancellationToken);
+            HttpResponseMessage response = await _httpClient.PutAsync(uri, Serelize(data), cancellationToken);
             return await HandleResponse<TResponse>(response, cancellationToken);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[PUT] Error calling {uri}: {ex.Message}");
+            _logger.LogError(ex, "[PUT] Error calling {0}: {1}", uri, ex.Message);
             return default;
         }
     }
-    public async Task<bool> DeleteAsync(string uri, CancellationToken cancellationToken = default)
+    public async Task<TResponse?> Delete<TRequest, TResponse>(string uri, TRequest? data, CancellationToken cancellationToken = default)
     {
         try
         {
+            if (data is not null) uri = Helper.GetUrlExtension(uri, data);
+
             HttpResponseMessage response = await _httpClient.DeleteAsync(uri, cancellationToken);
             return await HandleResponse<TResponse>(response, cancellationToken);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[DELETE] Error calling {uri}: {ex.Message}");
+            _logger.LogError(ex, "[DELETE] Error calling {0}: {1}", uri,ex.Message);
             return default;
         }
-    }
-    private StringContent Encode<TRequest>(TRequest data)
-    {
-        string json = JsonSerializer.Serialize(data, _serializerOptions);
-        return new StringContent(json, _encoding, _mediaType);
     }
     private async Task<TResponse?> HandleResponse<TResponse>(HttpResponseMessage response, CancellationToken cancellationToken)
     {
@@ -90,5 +79,18 @@ public sealed class RestClient(HttpClient httpClient) : IRestClient
         if (typeof(TResponse) == typeof(string)) return (TResponse)(object)responseContent;
      
         return JsonSerializer.Deserialize<TResponse>(responseContent, _serializerOptions);
+    }
+    private StringContent? Serelize<TRequest>(TRequest data)
+    {
+        try
+        {
+            string json = JsonSerializer.Serialize(data, _serializerOptions);
+            return new StringContent(json, _encoding, _mediaType);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to serialize request data");
+            return default;
+        } 
     }
 }

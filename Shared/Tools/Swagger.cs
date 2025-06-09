@@ -1,17 +1,12 @@
 ﻿using ApiClient;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
-using Shared.Requests;
-using System.Reflection;
-using Shared.Api;
-
 namespace Shared.Tools;
 public sealed class Swagger
 {
     private readonly IRestClient _client;
     private readonly ILogger _logger;
     private const string _swaggerPath = "/swagger/v1/swagger.json";
-    private readonly RandomGenerator _randomGenerator = new();
     public Swagger(IRestClient client, ILogger logger)
     {
         _client = client;
@@ -142,67 +137,6 @@ public sealed class Swagger
         {
             _logger.LogError(ex, "Unexpected error while retrieving Swagger endpoints: {0}", ex.Message);
         }
-
-        return null;
-    }
-    public Type? GetDtoType(string operationId)
-    {
-        Type? interfaceType = typeof(IRequest);
-        Assembly? assembly = interfaceType.Assembly;
-
-        Type? handlerType = assembly.GetTypes()
-            .Where(t => t.IsClass && !t.IsAbstract && !t.IsInterface)
-            .FirstOrDefault(t =>
-                interfaceType.IsAssignableFrom(t) &&
-                t.Name.Equals(operationId, StringComparison.OrdinalIgnoreCase));
-
-        return handlerType;
-    }
-    public object GetPayLoad(Type type)
-    {
-        if (type == typeof(string)) return _randomGenerator.NextString(5);
-        if (type == typeof(int)) return 1;
-        if (type == typeof(DateTime)) return DateTime.UtcNow;
-
-        object? instance = Activator.CreateInstance(type)!;
-        foreach (PropertyInfo prop in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
-        {
-            if (!prop.CanWrite) continue;
-
-            object? value = GetDefaultValue(prop.PropertyType);
-            prop.SetValue(instance, value);
-        }
-
-        return instance;
-    }
-    public string GetUrlExtension(string baseUri, object queryParams)
-    {
-        if (queryParams == null)
-            return baseUri;
-
-        PropertyInfo[] props = queryParams.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance);
-
-        string query = string.Join("&", props
-            .Where(p => p.GetValue(queryParams) != null)
-            .Select(p =>
-                $"{Uri.EscapeDataString(p.Name)}={Uri.EscapeDataString(p.GetValue(queryParams)!.ToString()!)}"
-            )
-        );
-
-        return string.IsNullOrWhiteSpace(query)
-            ? baseUri
-            : $"{baseUri}?{query}";
-    }
-    private object? GetDefaultValue(Type type)
-    {
-        if (type == typeof(string)) return _randomGenerator.NextString(10);
-        if (type == typeof(int)) return 1;
-        if (type == typeof(DateTime)) return DateTime.UtcNow;
-        if (type == typeof(bool)) return true;
-        if (type.IsEnum) return Enum.GetValues(type).GetValue(0);
-        if (type.IsClass && type != typeof(string)) return GetPayLoad(type);
-        if (Nullable.GetUnderlyingType(type) is { } innerType)
-            return GetDefaultValue(innerType);
 
         return null;
     }

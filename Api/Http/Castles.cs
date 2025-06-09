@@ -1,11 +1,10 @@
 ﻿using DataBase.Collections.Castles;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Api;
-using Shared.Requests;
 namespace Api.Http;
 public sealed class Castles
 {
-    public sealed class Add //: IEndPoint
+    public sealed class Add : IEndPoint
     {
         public string Path { get; } = string.Format("{0}/{1}", nameof(Castles), nameof(Add));
         public void ConfigureRoutes(IEndpointRouteBuilder app)
@@ -30,7 +29,7 @@ public sealed class Castles
             .Produces<int>(StatusCodes.Status200OK);
         }
     }
-    public sealed class Delete// : IEndPoint
+    public sealed class Delete : IEndPoint
     {
         public string Path { get; } = string.Format("{0}/{1}", nameof(Castles), nameof(Delete));
         public void ConfigureRoutes(IEndpointRouteBuilder app)
@@ -46,7 +45,7 @@ public sealed class Castles
             .Produces<bool>(StatusCodes.Status200OK);
         }
     }
-    public sealed class Get// : IEndPoint
+    public sealed class Get : IEndPoint
     {
         public string Path { get; } = string.Format("{0}/{1}", nameof(Castles), nameof(Get));
         public void ConfigureRoutes(IEndpointRouteBuilder app)
