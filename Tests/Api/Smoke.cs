@@ -17,7 +17,7 @@ public class ApiSmokeTests : IClassFixture<WebApplicationFactory<Program>>, IAsy
     private IRestClient _client;
     private readonly Swagger _swagger;
     private readonly Parser _parser;
-    private readonly ILogger<ApiSmokeTests> _logger;
+    private readonly ILogger _logger;
     private static List<Endpoint>? _endpoints = new();
     public ApiSmokeTests(WebApplicationFactory<Program> factory)
     {

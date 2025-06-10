@@ -3,22 +3,23 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Shared.Api;
 namespace Shared.Tools;
-public sealed class Swagger(IRestClient client, ILogger<Swagger> logger)
+public sealed class Swagger
 {
     private readonly IRestClient _client;
-    private readonly ILogger<Swagger> _logger;
-    private const string _swaggerPath = "/swagger/v1/swagger.json";
-    public Swagger(IRestClient client, ILogger<Swagger> logger)
+    private readonly ILogger _logger;
+    public readonly string ServicePath;
+    public Swagger(IRestClient client, ILogger logger, string? servicePath = null)
     {
         _client = client;
         _logger = logger;
+        ServicePath ??= servicePath ?? "/swagger/v1/swagger.json";
     }
     public async Task<bool> GetStatus(string? filePath = null)
     {
         if (string.IsNullOrWhiteSpace(filePath))
         {
             _logger.LogDebug("[GetStatus] => reading from service");
-            string? json = await _client.Get<string>(_swaggerPath);
+            string? json = await _client.Get<string>(ServicePath);
             return CheckSwagger(json);
         }
         else
@@ -114,7 +115,7 @@ public sealed class Swagger(IRestClient client, ILogger<Swagger> logger)
         {
             _logger.LogInformation("Configuring HttpClient to retrieve Swagger endpoints...");
 
-            string? json = await _client.Get<string>(_swaggerPath);
+            string? json = await _client.Get<string>(ServicePath);
             if (string.IsNullOrWhiteSpace(json))
             {
                 _logger.LogError("Swagger JSON is empty or null.");

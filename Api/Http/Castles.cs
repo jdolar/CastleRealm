@@ -5,7 +5,7 @@ using Shared.Api;
 namespace Api.Http;
 public sealed class Castles
 {
-    public sealed class Add //: IEndPoint
+    public sealed class Add : IEndPoint
     {
         public string Path { get; } = string.Format("{0}/{1}", nameof(Castles), nameof(Add));
         public void ConfigureRoutes(IEndpointRouteBuilder app)
@@ -14,20 +14,20 @@ public sealed class Castles
             {
                 Domain.Castles.Castle castle = new(db);
                 int castleId = await castle.Add(request);
-                return Results.Ok(new Shared.Responses.Castles.Add(castleId));
+                return Results.Ok(new Shared.Responses.Castles.Added(castleId));
             })
             .WithName(nameof(Add))
             .WithTags(nameof(Castles))
-            .Produces<Shared.Responses.Castles.Add>(StatusCodes.Status200OK);
+            .Produces<Shared.Responses.Castles.Added>(StatusCodes.Status200OK);
 
             app.MapPost(string.Format("{0}TestData", Path), async (int count, CastleContext db) =>
             {
                 Domain.Castles.Castle castle = new(db);
                 int castleId = await castle.AddTestData(count);
-                return Results.Ok(new Shared.Responses.Castles.Add(castleId));
+                return Results.Ok(new Shared.Responses.Castles.Added(castleId));
             })
             .WithTags(nameof(Tools))
-            .Produces<Shared.Responses.Castles.Add>(StatusCodes.Status200OK);
+            .Produces<Shared.Responses.Castles.Added>(StatusCodes.Status200OK);
         }
     }
     public sealed class Delete : IEndPoint

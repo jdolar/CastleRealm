@@ -2,7 +2,6 @@
 using DataBase.Collections.Castles;
 using Microsoft.EntityFrameworkCore;
 using Shared.Api;
-using Shared.Requests;
 using Shared.Tools;
 using Shared.Tools.SimpleLogger;
 using Swashbuckle.AspNetCore.Swagger;
@@ -42,6 +41,11 @@ public static class Setup
             LogLevel.Debug,
             string.Format("\nProvider={0}\nConfig={1}", provider, config)
         );
+    }
+    public static void DebugStartup(WebApplicationBuilder builder)
+    {
+        builder.WebHost.CaptureStartupErrors(true);
+        builder.Logging.AddConsole();
     }
     public static void MapEndpoints(IEndpointRouteBuilder app)
     {
@@ -90,11 +94,7 @@ public static class Setup
     }
     public static void AddHttpClient(WebApplicationBuilder builder)
     {
-        builder.Services.AddHttpClient<IRestClient, RestClient>("InternalApi", client =>
-        {
-           // client.BaseAddress = new Uri("http://localhost");
-     
-        });
+        builder.Services.AddHttpClient<IRestClient, RestClient>("InternalApi", client => {});
     }
     public static void RegisterDatabase(WebApplicationBuilder builder)
     {

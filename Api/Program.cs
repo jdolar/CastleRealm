@@ -1,6 +1,7 @@
 using Api.System;
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 Setup.Logger(builder);
+Setup.DebugStartup(builder);
 Setup.AddHttpClient(builder);
 Setup.AddHttpLogging(builder);
 Setup.RegisterDatabase(builder);
