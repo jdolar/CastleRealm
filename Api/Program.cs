@@ -1,5 +1,4 @@
 using Api.System;
-
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 Setup.Logger(builder);
 Setup.AddHttpClient(builder);

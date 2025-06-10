@@ -2,27 +2,55 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 namespace Shared.Tools;
-public sealed class Swagger
+public sealed class Swagger(IRestClient client, ILogger<Swagger> logger)
 {
     private readonly IRestClient _client;
-    private readonly ILogger _logger;
+    private readonly ILogger<Swagger> _logger;
     private const string _swaggerPath = "/swagger/v1/swagger.json";
-    public Swagger(IRestClient client, ILogger logger)
+    public Swagger(IRestClient client, ILogger<Swagger> logger)
     {
         _client = client;
         _logger = logger;
     }
-    public async Task<bool> GetStatus()
+    public async Task<bool> GetStatus(string? filePath = null)
     {
-        try
+        if (string.IsNullOrWhiteSpace(filePath))
         {
+            _logger.LogDebug("[GetStatus] => reading from service");
             string? json = await _client.Get<string>(_swaggerPath);
-            if (string.IsNullOrWhiteSpace(json))
+            return CheckSwagger(json);
+        }
+        else
+        {
+            _logger.LogDebug("[GetStatus] => reading from service");
+
+            if (!File.Exists(filePath))
             {
-                _logger.LogError("❌ Swagger JSON is empty or null");
+                _logger.LogError("[GetStatus] => file does not exist: {0}", filePath);
                 return false;
             }
+            try
+            {
+                string json = await File.ReadAllTextAsync(filePath);
+                return  CheckSwagger(json);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[GetStatus] => error reading file: {0}", filePath);
+                return false;
+            }
+        }
+    }
+    public bool CheckSwagger(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            _logger.LogError("❌ Swagger JSON is empty or null");
+            return false;
+        }
 
+        try
+        {         
             using JsonDocument doc = JsonDocument.Parse(json);
             JsonElement root = doc.RootElement;
 
