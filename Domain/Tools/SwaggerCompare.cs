@@ -1,4 +1,5 @@
 ﻿using ApiClient;
+using Markdig;
 using Microsoft.Extensions.Logging;
 namespace Domain.Tools;
 public class SwaggerCompare
@@ -18,7 +19,11 @@ public class SwaggerCompare
             return false;
         }
 
-        Shared.Tools.SwaggerCompare sw = new(_client, _logger, request);
-        return await sw.CompareAsync(request);
+        Shared.Tools.Swagger.Compare compare = new(_client, _logger, request);
+        List<Shared.Api.Endpoint> info = await compare.GatherInfo(request);
+        string md = compare.Three(info);
+        string html = Markdown.ToHtml(md);
+
+        return true;
     }
 }
