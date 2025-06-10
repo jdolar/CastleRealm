@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using ApiClient;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Shared.Tools;
-using Endpoint = Shared.Endpoint;
+using Shared.Api;
 namespace UnitTests.Api;
 public class ApiSmokeTests : IClassFixture<WebApplicationFactory<Program>>, IAsyncLifetime
 {

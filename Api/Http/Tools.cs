@@ -11,11 +11,11 @@ public sealed class Tools
         {
             app.MapGet(Path, ([FromQuery] string input, string? aesKey, string? aesIv) =>
             {
-                return Results.Ok(aes.EncyrptString(input, aesKey, aesIv));
+                return Results.Ok(new Shared.Responses.Tools.Encrypt(aes.EncyrptString(input, aesKey, aesIv)));
             })
             .WithName(nameof(Encrypt))
             .WithTags(nameof(Tools))
-            .Produces<string>(StatusCodes.Status200OK);
+            .Produces<Shared.Responses.Tools.Encrypt>(StatusCodes.Status200OK);
         }
     }
     public sealed class Decrypt : IEndPoint
@@ -26,11 +26,11 @@ public sealed class Tools
         {
             app.MapGet(Path, ([FromQuery] string input, string? aesKey, string? aesIv) =>
             {
-                return Results.Ok(aes.DecryptString(input, aesKey, aesIv));
+                return Results.Ok(new Shared.Responses.Tools.Decrypt(aes.DecryptString(input, aesKey, aesIv)));
             })
             .WithName(nameof(Decrypt))
             .WithTags(nameof(Tools))
-            .Produces<string>(StatusCodes.Status200OK);
+            .Produces<Shared.Responses.Tools.Decrypt>(StatusCodes.Status200OK);
         }
     }
 }
