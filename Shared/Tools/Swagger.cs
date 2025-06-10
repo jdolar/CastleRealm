@@ -1,6 +1,7 @@
 ﻿using ApiClient;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using Shared.Api;
 namespace Shared.Tools;
 public sealed class Swagger
 {
@@ -85,7 +86,7 @@ public sealed class Swagger
         {
             _logger.LogInformation("Configuring HttpClient to retrieve Swagger endpoints...");
 
-            string? json = await _client.Get<string>("/swagger/v1/swagger.json");
+            string? json = await _client.Get<string>(_swaggerPath);
             if (string.IsNullOrWhiteSpace(json))
             {
                 _logger.LogError("Swagger JSON is empty or null.");
