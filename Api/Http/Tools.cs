@@ -44,8 +44,8 @@ public sealed class Tools
                 [FromServices] IRestClient client) =>
             {
                 Domain.Tools.SwaggerCompare compare = new(client, logger);
-                bool everythingFine = await compare.CompareAsync(request);
-                return Results.Ok(new Shared.Responses.Tools.SwaggerCompared(everythingFine));
+                (string, int) response = await compare.CompareAsync(request);
+                return Results.Ok(new Shared.Responses.Tools.SwaggerCompared(response.Item1, response.Item2));
             })
             .WithName(nameof(SwaggerCompare))
             .WithTags(nameof(Tools))

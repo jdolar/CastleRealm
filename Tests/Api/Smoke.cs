@@ -10,12 +10,13 @@ using ApiClient;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Shared.Tools;
 using Shared.Api;
+using Shared.Tools.Swagger;
 namespace UnitTests.Api;
 public class ApiSmokeTests : IClassFixture<WebApplicationFactory<Program>>, IAsyncLifetime
 {
     private readonly WebApplicationFactory<Program> _factory;
     private IRestClient _client;
-    private readonly Swagger _swagger;
+    private readonly Health _swagger;
     private readonly Parser _parser;
     private readonly ILogger _logger;
     private static List<Endpoint>? _endpoints = new();
