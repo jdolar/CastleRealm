@@ -2,6 +2,7 @@
 namespace Shared.Responses.Tools;
 public sealed class SwaggerCompared : IResponse
 {
-    public bool IsDone { get; set; } = new();
-    public SwaggerCompared(bool isDone) => IsDone = isDone;
+    public int BytesGenerated { get; set; } = new();
+    public string FilePath { get; set; } = string.Empty;
+    public SwaggerCompared(string path, int bytesGenerated) => BytesGenerated = bytesGenerated;
 }

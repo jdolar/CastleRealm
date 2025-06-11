@@ -1,6 +1,8 @@
 ﻿using ApiClient;
+using F23.StringSimilarity;
 using Microsoft.Extensions.Logging;
 using System.Text;
+using Endpoint = Shared.Api.Endpoint;
 namespace Shared.Tools.Swagger;
 public sealed class Compare
 {
@@ -13,17 +15,10 @@ public sealed class Compare
         _logger = logger;
         _swagger = new(_client, _logger);
     }
-    public string Three(List<Api.Endpoint> endpoints)
+    public async Task<List<List<Endpoint>>> GatherInfo(Requests.Tools.SwaggerCompare request)
     {
-        var grouped = endpoints
-            .GroupBy(e => e.Facade)
-            .ToDictionary(g => g.Key, g => g.ToList());
-
-        return GenerateMarkdownDocumentation(grouped);
-    }
-    public async Task<List<Api.Endpoint>> GatherInfo(Requests.Tools.SwaggerCompare request)
-    {
-        List<Api.Endpoint> endpointsByFacade = new();
+        List<List<Endpoint>> info = new();
+        List <Api.Endpoint> endpointsByFacade = new();
 
         foreach (string facade in request.Facades)
         {
@@ -36,52 +31,180 @@ public sealed class Compare
                 continue;
             }
 
-            List<Api.Endpoint>? facadeEndpoints = await _swagger.GetEndPoints(facadePath)!;
-            if (facadeEndpoints is null) continue;
+            List<Endpoint>? facadeInfo = await _swagger.GetEndPoints(facadePath)!;
+            if (facadeInfo is null) continue;
 
-            endpointsByFacade.AddRange(facadeEndpoints);
+            info.Add(facadeInfo);
         }
-        if (endpointsByFacade.Count == 0) _logger.LogError("❌ No healthy facades found.");
+        if (info.Count == 0) _logger.LogError("❌ No healthy facades found.");
         
-        return endpointsByFacade;
+        return info;
     }
-    public static string GenerateMarkdownDocumentation(Dictionary<string, List<Api.Endpoint>> groupedEndpoints)
+    public List<EndpointMatch> MatchEndpoints(List<List<Endpoint>> swaggers, double threshold = 0.8)
     {
-        StringBuilder sb = new();
+        /*
+            Good enough implementation 
+        */
+        int swagger1 = 0;
+        int swagger2 = 1;
+        int swagger3 = 2;
 
-        foreach (var group in groupedEndpoints.OrderBy(g => g.Key))
+        List<EndpointMatch> matches = new();
+        HashSet<string> usedB = new();
+        HashSet<string> usedC = new();
+        JaroWinkler winky = new();
+
+        foreach (Endpoint epA in swaggers[swagger1].OrderBy(x => x.Name))
         {
-            sb.AppendLine($"# {group.Key}");
-            sb.AppendLine();
+            Endpoint? bestB = null, bestC = null;
+            double bestScoreB = 0, bestScoreC = 0;
 
-            foreach (var endpoint in group.Value.OrderBy(e => e.Operation))
+            foreach (Endpoint epB in swaggers[swagger2])
             {
-                sb.AppendLine($"## `{endpoint.Method}` {endpoint.Path}");
-                sb.AppendLine($"**Operation:** `{endpoint.Operation}`");
-                sb.AppendLine();
+                if (usedB.Contains(epB.Name)) continue;
 
-                if (endpoint.Parameters.Any())
+                double score = winky.Similarity(Normalize(epA.Name), Normalize(epB.Name));
+                if (score > bestScoreB && score >= threshold)
                 {
-                    sb.AppendLine("| Name | In | Type | Required |");
-                    sb.AppendLine("|------|----|------|----------|");
-
-                    foreach (var p in endpoint.Parameters)
-                    {
-                        sb.AppendLine($"| `{p.Name}` | `{p.In}` | `{p.Type}` | `{(p.Required ? "Yes" : "No")}` |");
-                    }
-
-                    sb.AppendLine();
-                }
-                else
-                {
-                    sb.AppendLine("_No parameters._");
-                    sb.AppendLine();
+                    bestB = epB;
+                    bestScoreB = score;
                 }
             }
 
-            sb.AppendLine("---");
+            foreach (Endpoint epC in swaggers[swagger3])
+            {
+                if (usedC.Contains(epC.Name)) continue;
+
+                double score = winky.Similarity(Normalize(epA.Name), Normalize(epC.Name));
+                if (score > bestScoreC && score >= threshold)
+                {
+                    bestC = epC;
+                    bestScoreC = score;
+                }
+            }
+
+            if (bestB != null) usedB.Add(bestB.Name);
+            if (bestC != null) usedC.Add(bestC.Name);
+
+            matches.Add(new EndpointMatch
+            {
+                A = epA,
+                B = bestB,
+                C = bestC,
+                ScoreB = bestB != null ? bestScoreB : null,
+                ScoreC = bestC != null ? bestScoreC : null
+            });
+        }
+
+        // Add unmatched from B
+        foreach (Endpoint sw2 in swaggers[swagger2].Where(b => !usedB.Contains(b.Name)))
+        {
+            matches.Add(new EndpointMatch
+            {
+                A = null,
+                B = sw2,
+                C = null,
+                ScoreB = null
+            });
+        }
+
+        // Add unmatched from C
+        foreach (Endpoint sw3 in swaggers[swagger3].Where(c => !usedC.Contains(c.Name)))
+        {
+            matches.Add(new EndpointMatch
+            {
+                A = null,
+                B = null,
+                C = sw3,
+                ScoreC = null
+            });
+        }
+
+        return matches;
+    }
+    public string GenerateSimplifiedMarkdown(List<EndpointMatch> matches, List<string> facadeNames)
+    {
+        var sb = new StringBuilder();
+
+        // Facade labels (one per block of 5 columns)
+        sb.AppendLine($"| {facadeNames[0]} Path | Name | Method | Parameters | Misc | " +
+                      $"{facadeNames[1]} Path | Name | Method | Parameters | Misc | " +
+                      $"{facadeNames[2]} Path | Name | Method | Parameters | Misc |");
+
+        // Markdown header alignment
+        sb.AppendLine("|------------------|------|--------|------------|------|" +
+                      "------------------|------|--------|------------|------|" +
+                      "------------------|------|--------|------------|------|");
+
+        foreach (var match in matches)
+        {
+            string FormatEndpoint(Endpoint? ep)
+            {
+                if (ep == null)
+                    return "- | - | - | - | -";
+
+                string parameters = FormatParameters(ep.Parameters).Replace("\r", "").Replace("\n", "<br>");
+                string miscParts = "";
+
+                if (!string.IsNullOrWhiteSpace(ep.Operation))
+                    miscParts += $"[Operation={Escape(ep.Operation)}]";
+                if (!string.IsNullOrWhiteSpace(ep.Tags))
+                    miscParts += $" [Tags={Escape(ep.Tags)}]";
+                if (!string.IsNullOrWhiteSpace(ep.Title))
+                    miscParts += $" [Title={Escape(ep.Title)}]";
+
+                return $"{Escape(ep.Path)} | {Escape(ep.Name)} | {Escape(ep.Method)} | {parameters} | {Escape(miscParts.Trim())}";
+            }
+
+            string row = $"| {FormatEndpoint(match.A)} | {FormatEndpoint(match.B)} | {FormatEndpoint(match.C)} |";
+            sb.AppendLine(row);
         }
 
         return sb.ToString();
+    }
+    private static string DisplayName(Endpoint ep)
+    {
+        return Escape(ep.Tags)
+            ?? Escape(ep.Title)
+            ?? Escape(ep.Operation)
+            ?? Escape(ep.MachParameter)
+            ?? "-";
+    }
+    private static string Escape(string? input)
+    {
+        return string.IsNullOrWhiteSpace(input)
+            ? "-"
+            : input.Replace("|", "\\|").Replace("\n", "").Replace("\r", "").Trim();
+    }
+    private static string FormatEndpoint(Endpoint? ep)
+    {
+        if (ep == null)
+            return "- | - | - | - | - | - | - | -";
+
+        string paramText = FormatParameters(ep.Parameters).Replace("\r", "").Replace("\n", "<br>");
+        string matchedOn = FormatMatchedOn(ep);
+
+        return $"{Escape(ep.Path)} | {DisplayName(ep)} | {Escape(ep.Method)} | {paramText} | {matchedOn} | {Escape(ep.Operation)} | {Escape(ep.Tags)} | {Escape(ep.Title)}";
+    }
+    private static string FormatParameters(List<Parameter> parameters)
+    {
+        if (parameters == null || parameters.Count == 0)
+            return "-";
+
+        return string.Join("<br>", parameters.Select(p =>
+            $"**{p.Name}** ({p.Type}) [{p.In}]{(p.Required ? " (required)" : "")}"
+        ));
+    }
+    private static string FormatMatchedOn(Endpoint ep)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(ep.Operation)) parts.Add($"[Operation={Escape(ep.Operation)}]");
+        if (!string.IsNullOrWhiteSpace(ep.Tags)) parts.Add($"[Tags={Escape(ep.Tags)}]");
+        if (!string.IsNullOrWhiteSpace(ep.Title)) parts.Add($"[Title={Escape(ep.Title)}]");
+        return parts.Count == 0 ? "-" : string.Join("", parts);
+    }
+    private static string Normalize(string input)
+    {
+        return input.Trim().ToLowerInvariant().Replace("_", "").Replace("-", "");
     }
 }

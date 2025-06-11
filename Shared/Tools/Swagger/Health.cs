@@ -134,16 +134,50 @@ public sealed class Health
                     {
                         Path = path.Name,
                         Name = Path.GetFileNameWithoutExtension(path.Name),
-                        Facade = segments.Length > 0 ? segments[0] : "Unknown",
+                        Segments = segments.Length > 0 ? segments[0] : "Unknown",
                         Method = method.Name.ToUpperInvariant()
                     };
 
-                    if (method.Value.TryGetProperty("operationId", out var operationId))
+                    // Store operationId if available
+                    if (method.Value.TryGetProperty("operationId", out var operation) &&
+                        operation.ValueKind == JsonValueKind.String &&
+                        !string.IsNullOrWhiteSpace(operation.GetString()))
                     {
-                        endpoint.Operation = operationId.GetString()?.Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries)[0] ?? string.Empty;
-                    };
+                        endpoint.Operation = operation.GetString()!;
+                    }
 
-                    List<Parameter> parameters = new();
+                    // Store tags (first tag if available)
+                    if (method.Value.TryGetProperty("tags", out var tags) &&
+                        tags.ValueKind == JsonValueKind.Array)
+                    {
+                        endpoint.Tags = tags.EnumerateArray()
+                                            .Select(t => t.GetString())
+                                            .FirstOrDefault(t => !string.IsNullOrWhiteSpace(t));
+                    }
+
+                    // Store title if available
+                    if (method.Value.TryGetProperty("title", out var title) &&
+                        title.ValueKind == JsonValueKind.String &&
+                        !string.IsNullOrWhiteSpace(title.GetString()))
+                    {
+                        endpoint.Title = title.GetString();
+                    }
+
+                    // Set MachParameter (only once) based on priority
+                    if (!string.IsNullOrWhiteSpace(endpoint.Operation))
+                    {
+                        endpoint.MachParameter = endpoint.Operation;
+                    }
+                    else if (!string.IsNullOrWhiteSpace(endpoint.Tags))
+                    {
+                        endpoint.MachParameter = endpoint.Tags;
+                    }
+                    else if (!string.IsNullOrWhiteSpace(endpoint.Title))
+                    {
+                        endpoint.MachParameter = endpoint.Title;
+                    }
+
+                    List< Parameter> parameters = new();
                     if (method.Value.TryGetProperty("parameters", out JsonElement paramArray) &&
                         paramArray.ValueKind == JsonValueKind.Array)
                     {
@@ -171,6 +205,60 @@ public sealed class Health
                             });
                         }
                     }
+
+                    if (method.Value.TryGetProperty("requestBody", out JsonElement bodyArray))
+                    {
+                        if (bodyArray.TryGetProperty("content", out var content) &&
+                            content.TryGetProperty("application/json", out var appJson) &&
+                            appJson.TryGetProperty("schema", out var schema))
+                        {
+                            // If schema has $ref, resolve it
+                            if (schema.TryGetProperty("$ref", out var refProp))
+                            {
+                                string refPath = refProp.GetString()!;
+                                // e.g., "#/components/schemas/CreateUserRequest"
+                                var schemaName = refPath.Split('/').Last();
+
+                                if (doc.RootElement.TryGetProperty("components", out var components) &&
+                                    components.TryGetProperty("schemas", out var schemas) &&
+                                    schemas.TryGetProperty(schemaName, out var schemaDef))
+                                {
+                                    var requiredProps = new HashSet<string>();
+                                    if (schemaDef.TryGetProperty("required", out var requiredArray))
+                                    {
+                                        requiredProps = requiredArray.EnumerateArray()
+                                            .Where(x => x.ValueKind == JsonValueKind.String)
+                                            .Select(x => x.GetString()!)
+                                            .ToHashSet();
+                                    }
+
+                                    if (schemaDef.TryGetProperty("properties", out var properties))
+                                    {
+                                        foreach (var prop in properties.EnumerateObject())
+                                        {
+                                            string propName = prop.Name;
+                                            var propSchema = prop.Value;
+
+                                            string type = propSchema.TryGetProperty("type", out var typeProp) ? typeProp.GetString()! : "object";
+
+                                            parameters.Add(new Parameter
+                                            {
+                                                Name = propName,
+                                                In = "body",
+                                                Required = requiredProps.Contains(propName),
+                                                Type = type
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                // Handle inline schema here if needed (less common)
+                            }
+                        }
+                    }
+                    
                     endpoint.Parameters = parameters;
                     endpoints.Add(endpoint);
                 }

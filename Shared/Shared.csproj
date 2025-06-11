@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="F23.StringSimilarity" Version="6.0.0" />
     <PackageReference Include="Microsoft.Web.Administration" Version="11.1.0" />
 	<PackageReference Include="Swashbuckle.AspNetCore" Version="8.1.0" />
   </ItemGroup>
