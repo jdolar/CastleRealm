@@ -1,6 +1,7 @@
 ﻿using ApiClient;
 using Microsoft.Extensions.Logging;
 using Shared.Tools.Swagger;
+using System.Diagnostics;
 namespace Domain.Tools;
 public class SwaggerCompare
 {
@@ -13,16 +14,14 @@ public class SwaggerCompare
     }
     public async Task<(string, int)> CompareAsync (Shared.Requests.Tools.SwaggerCompare request)
     {
-        /*TEST ONLY*/
-        request.FilesPath = "C:\\Users\\InR\\Desktop\\SwaggerCompare";
-        request.Facades = new List<string> { "PlayerPortalFacade.json", "PortalGateway.json", "NativeApi.json" };
-
-        if (request.Facades is null || request.Facades.Count == 0 || request.Facades.Count > 3)
+        Stopwatch stopwatch = new();
+        if (request.Facades is null || request.Facades.Count < 2 || request.Facades.Count > 3)
         {
             _logger.LogError("❌ Currently comparison is posible for only 3 swagger instances, actual number: {0}", request.Facades?.Count);
             return (string.Empty, 0);
         }
 
+        stopwatch.Start();
         Compare compare = new(_client, _logger, request);
         List<List<Shared.Api.Endpoint>> swaggers = await compare.GatherInfo(request);
         
@@ -43,7 +42,8 @@ public class SwaggerCompare
         }
 
         await File.WriteAllBytesAsync(path, bytes);
-
+        stopwatch.Stop();
+        _logger.LogInformation("✅ Swagger comparison completed in {0} ms. File saved to {1}", stopwatch.ElapsedMilliseconds, path);
         return (path, bytes.Length);
     }
 }
