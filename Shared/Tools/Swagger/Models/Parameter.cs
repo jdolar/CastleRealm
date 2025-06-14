@@ -1,4 +1,4 @@
-﻿namespace Shared.Tools.Swagger;
+﻿namespace Shared.Tools.Swagger.Models;
 public sealed class Parameter
 {
     public string Name { get; set; } = default!;

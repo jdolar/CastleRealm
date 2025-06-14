@@ -8,18 +8,19 @@ using Xunit;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using ApiClient;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Shared.Tools;
 using Shared.Api;
 using Shared.Tools.Swagger;
+using ApiClient.Tools;
 namespace UnitTests.Api;
 public class ApiSmokeTests : IClassFixture<WebApplicationFactory<Program>>, IAsyncLifetime
 {
     private readonly WebApplicationFactory<Program> _factory;
     private IRestClient _client;
-    private readonly Health _swagger;
-    private readonly Parser _parser;
+    private readonly Helpers _swagger;
+    private readonly Content _content;
     private readonly ILogger _logger;
     private static List<Endpoint>? _endpoints = new();
+    private readonly Http _utils;
     public ApiSmokeTests(WebApplicationFactory<Program> factory)
     {
         _factory = factory;
@@ -40,8 +41,9 @@ public class ApiSmokeTests : IClassFixture<WebApplicationFactory<Program>>, IAsy
 
         _client = _factory.Services.GetRequiredService<IRestClient>();
         _logger = _factory.Services.GetRequiredService<ILogger<ApiSmokeTests>>();
+        _utils = new(_logger);
         _swagger = new(_client, _logger);
-        _parser = new(_logger);
+        _content = new(_logger);
     }
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     public async ValueTask InitializeAsync()
@@ -54,8 +56,9 @@ public class ApiSmokeTests : IClassFixture<WebApplicationFactory<Program>>, IAsy
         CastleContext db = scope.ServiceProvider.GetRequiredService<CastleContext>();
         await db.Database.MigrateAsync();
 
-        bool isHealthy = await _swagger.GetStatus();
-        if (isHealthy) _endpoints = await _swagger.GetEndPoints()!;
+        string? json = await _swagger.GetJson();
+        bool isHealthy = _swagger.IsHealthy(json);
+        if (isHealthy) _endpoints = _swagger.GetEndPoints(json)!;
     }
 
     [Fact]
@@ -67,16 +70,16 @@ public class ApiSmokeTests : IClassFixture<WebApplicationFactory<Program>>, IAsy
 
         foreach (Endpoint endpoint in _endpoints!)
         {
-            Type? type = _parser.GetDtoType(endpoint.Operation);            
+            Type? type = _content.GetDtoType(endpoint.Name);
             if (type is null) continue;
-            
-            object? payLoad = _parser.GetPayLoad(type!);
+
+            object? payLoad = _content.GetPayLoad(type!);
             IResponse? result = endpoint.Method.ToUpperInvariant() switch
             {
-                "GET" => await _client.Get<object, IResponse>(endpoint.Path, payLoad!, cancellationToken),
+                "GET" => await _client.Get<object, IResponse>(_utils.GetUrlExtension(endpoint.Path, payLoad), null, cancellationToken),
                 "POST" => await _client.Post<object, IResponse>(endpoint.Path, payLoad!, cancellationToken),
                 "PUT" => await _client.Put<object, IResponse>(endpoint.Path, payLoad!, cancellationToken),
-                "DELETE" => await _client.Get<object, IResponse>(endpoint.Path, payLoad!, cancellationToken),
+                "DELETE" => await _client.Delete<object, IResponse>(_utils.GetUrlExtension(endpoint.Path, payLoad), null, cancellationToken),
                 _ => throw new NotSupportedException(string.Format("Unknown HTTP method {0} for endpoint {1}", endpoint.Method, endpoint.Path))
             };
         }

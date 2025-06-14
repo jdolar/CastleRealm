@@ -1,47 +1,50 @@
 ﻿using ApiClient;
 using F23.StringSimilarity;
 using Microsoft.Extensions.Logging;
-using System.Text;
+using Shared.Tools.Swagger.Models;
 using Endpoint = Shared.Api.Endpoint;
 namespace Shared.Tools.Swagger;
 public sealed class Compare
 {
-    private readonly Health _swagger;
     private readonly IRestClient _client;
     private readonly ILogger _logger;
+    private readonly Helpers _helper;
     public Compare(IRestClient client, ILogger logger, Requests.Tools.SwaggerCompare request)
     {
         _client = client;
         _logger = logger;
-        _swagger = new(_client, _logger);
+        _helper = new(_client, _logger);
     }
     public async Task<List<List<Endpoint>>> GatherInfo(Requests.Tools.SwaggerCompare request)
     {
         List<List<Endpoint>> info = new();
-        List <Api.Endpoint> endpointsByFacade = new();
 
         foreach (string facade in request.Facades)
         {
             string facadePath = string.Format("{0}\\{1}", request.FilesPath, facade);
-
-            bool isHealthy = await _swagger.GetStatus(facadePath);
+            string? json = await _helper.GetJson(facadePath);
+            bool isHealthy = _helper.IsHealthy(json);
             if (!isHealthy)
             {
                 _logger.LogError("❌ Facade {0} is not healthy.", facadePath);
                 continue;
             }
 
-            List<Endpoint>? facadeInfo = await _swagger.GetEndPoints(facadePath)!;
+            List<Endpoint>? facadeInfo =  _helper.GetEndPoints(json)!;
             if (facadeInfo is null) continue;
 
             info.Add(facadeInfo);
         }
-        if (info.Count == 0) _logger.LogError("❌ No healthy facades found.");
         
         return info;
     }
-    public List<EndpointMatch> MatchEndpoints(List<List<Endpoint>> swaggers, double threshold = 0.8)
+    public List<EndpointMatch>? MatchEndpoints(List<List<Endpoint>> swaggers, double threshold = 0.8)
     {
+        if(swaggers.Count < 2 || swaggers.Count > 3)
+        {
+            _logger.LogError("❌ Currently comparison is possible for only 2 or 3 swagger instances, actual number: {0}", swaggers.Count);
+            return null;
+        }
         /*
             Good enough implementation 
         */
@@ -122,88 +125,7 @@ public sealed class Compare
 
         return matches;
     }
-    public string GenerateSimplifiedMarkdown(List<EndpointMatch> matches, List<string> facadeNames)
-    {
-        var sb = new StringBuilder();
-
-        // Facade labels (one per block of 5 columns)
-        sb.AppendLine($"| {facadeNames[0]} Path | Name | Method | Parameters | Misc | " +
-                      $"{facadeNames[1]} Path | Name | Method | Parameters | Misc | " +
-                      $"{facadeNames[2]} Path | Name | Method | Parameters | Misc |");
-
-        // Markdown header alignment
-        sb.AppendLine("|------------------|------|--------|------------|------|" +
-                      "------------------|------|--------|------------|------|" +
-                      "------------------|------|--------|------------|------|");
-
-        foreach (var match in matches)
-        {
-            string FormatEndpoint(Endpoint? ep)
-            {
-                if (ep == null)
-                    return "- | - | - | - | -";
-
-                string parameters = FormatParameters(ep.Parameters).Replace("\r", "").Replace("\n", "<br>");
-                string miscParts = "";
-
-                if (!string.IsNullOrWhiteSpace(ep.Operation))
-                    miscParts += $"[Operation={Escape(ep.Operation)}]";
-                if (!string.IsNullOrWhiteSpace(ep.Tags))
-                    miscParts += $" [Tags={Escape(ep.Tags)}]";
-                if (!string.IsNullOrWhiteSpace(ep.Title))
-                    miscParts += $" [Title={Escape(ep.Title)}]";
-
-                return $"{Escape(ep.Path)} | {Escape(ep.Name)} | {Escape(ep.Method)} | {parameters} | {Escape(miscParts.Trim())}";
-            }
-
-            string row = $"| {FormatEndpoint(match.A)} | {FormatEndpoint(match.B)} | {FormatEndpoint(match.C)} |";
-            sb.AppendLine(row);
-        }
-
-        return sb.ToString();
-    }
-    private static string DisplayName(Endpoint ep)
-    {
-        return Escape(ep.Tags)
-            ?? Escape(ep.Title)
-            ?? Escape(ep.Operation)
-            ?? Escape(ep.MachParameter)
-            ?? "-";
-    }
-    private static string Escape(string? input)
-    {
-        return string.IsNullOrWhiteSpace(input)
-            ? "-"
-            : input.Replace("|", "\\|").Replace("\n", "").Replace("\r", "").Trim();
-    }
-    private static string FormatEndpoint(Endpoint? ep)
-    {
-        if (ep == null)
-            return "- | - | - | - | - | - | - | -";
-
-        string paramText = FormatParameters(ep.Parameters).Replace("\r", "").Replace("\n", "<br>");
-        string matchedOn = FormatMatchedOn(ep);
-
-        return $"{Escape(ep.Path)} | {DisplayName(ep)} | {Escape(ep.Method)} | {paramText} | {matchedOn} | {Escape(ep.Operation)} | {Escape(ep.Tags)} | {Escape(ep.Title)}";
-    }
-    private static string FormatParameters(List<Parameter> parameters)
-    {
-        if (parameters == null || parameters.Count == 0)
-            return "-";
-
-        return string.Join("<br>", parameters.Select(p =>
-            $"**{p.Name}** ({p.Type}) [{p.In}]{(p.Required ? " (required)" : "")}"
-        ));
-    }
-    private static string FormatMatchedOn(Endpoint ep)
-    {
-        var parts = new List<string>();
-        if (!string.IsNullOrWhiteSpace(ep.Operation)) parts.Add($"[Operation={Escape(ep.Operation)}]");
-        if (!string.IsNullOrWhiteSpace(ep.Tags)) parts.Add($"[Tags={Escape(ep.Tags)}]");
-        if (!string.IsNullOrWhiteSpace(ep.Title)) parts.Add($"[Title={Escape(ep.Title)}]");
-        return parts.Count == 0 ? "-" : string.Join("", parts);
-    }
-    private static string Normalize(string input)
+    private string Normalize(string input)
     {
         return input.Trim().ToLowerInvariant().Replace("_", "").Replace("-", "");
     }

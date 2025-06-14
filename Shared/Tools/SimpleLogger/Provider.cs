@@ -1,14 +1,16 @@
 ﻿using Microsoft.Extensions.Logging;
+using Shared.Tools.FileClient;
 namespace Shared.Tools.SimpleLogger;
 public class Provider : ILoggerProvider
 {
-    private readonly StreamWriter? _writer;
     private readonly Configuration? _config;
+    private readonly LogFile? _logFile;
     public Provider(Configuration config)
     {
         if (!config!.IsFileLoggingEnabled) return;
 
         _config = config;
+        _logFile = new();
         string filePath = _config.LogFilePath ?? Path.Combine(AppContext.BaseDirectory, "log.txt");
 
         string? directory = Path.GetDirectoryName(filePath);
@@ -16,18 +18,8 @@ public class Provider : ILoggerProvider
         {
             Directory.CreateDirectory(directory!);
         }
-
-        _writer = new StreamWriter(new FileStream(
-            filePath,
-            FileMode.Append,
-            FileAccess.Write,
-            FileShare.ReadWrite),
-            System.Text.Encoding.UTF8)
-        {
-            AutoFlush = true
-        };
     }
 
-    public ILogger CreateLogger(string categoryName) => new Logger(categoryName, _config!, _writer);
-    public void Dispose() => _writer?.Dispose();
+    public ILogger CreateLogger(string categoryName) => new Logger(categoryName, _config!, _logFile?.Writer);
+    public void Dispose() => _logFile?.Writer?.Dispose();
 }

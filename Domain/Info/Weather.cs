@@ -1,5 +1,4 @@
 ﻿namespace Domain.Info;
-
 public sealed class Weather
 {
     private readonly string[] summaries = ["Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"];

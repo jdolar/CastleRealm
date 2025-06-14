@@ -5,9 +5,7 @@ namespace Shared.Tools
 {
     public sealed class RandomGenerator
     {
-        private const string defaultCharset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-
-        // Generate a random integer between min (inclusive) and max (exclusive)
+        private const string _defaultCharset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
         public int NextInt(int min, int max)
         {
             ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(min, max);
@@ -23,12 +21,10 @@ namespace Shared.Tools
 
             return (int)(min + (max - min) * (scale / (double)uint.MaxValue));
         }
-
-        // Generate a random alphanumeric string of specified length
         public string NextString(int length, string? charset = null)
         {
             ArgumentOutOfRangeException.ThrowIfNegativeOrZero(length);
-            charset ??= defaultCharset;
+            charset ??= _defaultCharset;
 
             StringBuilder result = new(length);
             byte[] buffer = new byte[length];

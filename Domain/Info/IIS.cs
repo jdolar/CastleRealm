@@ -1,7 +1,5 @@
 ﻿using Microsoft.Web.Administration;
-
 namespace Domain.Info;
-
 public sealed class IIS
 {
     private readonly ServerManager? manager;

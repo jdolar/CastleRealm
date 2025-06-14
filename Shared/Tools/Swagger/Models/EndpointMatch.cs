@@ -1,5 +1,5 @@
 ﻿using Shared.Api;
-namespace Shared.Tools.Swagger;
+namespace Shared.Tools.Swagger.Models;
 public sealed class EndpointMatch
 {
     public Endpoint? A { get; set; }

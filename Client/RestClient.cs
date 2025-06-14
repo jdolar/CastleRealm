@@ -1,14 +1,11 @@
-﻿using Microsoft.Extensions.Logging;
-using System.Text;
-using System.Text.Json;
+﻿using ApiClient.Tools;
+using Microsoft.Extensions.Logging;
 namespace ApiClient;
 public sealed class RestClient(HttpClient httpClient, ILogger<RestClient> logger) : IRestClient
 {
     private readonly HttpClient _httpClient = httpClient;
     private readonly ILogger<RestClient> _logger = logger;
-    private readonly JsonSerializerOptions _serializerOptions = new(JsonSerializerDefaults.Web);
-    private readonly Encoding _encoding = Encoding.UTF8;
-    private const string _mediaType = "application/json";
+    private Http _utils = new(logger);
     public async Task<T?> Get<T>(string uri, CancellationToken cancellationToken = default)
     {
         return await Get<T, T>(uri, default, cancellationToken);
@@ -17,10 +14,8 @@ public sealed class RestClient(HttpClient httpClient, ILogger<RestClient> logger
     {
         try
         {
-            if (data is not null) uri = Helper.GetUrlExtension(uri, data);
-
             HttpResponseMessage response = await _httpClient.GetAsync(uri, cancellationToken);
-            return await HandleResponse<TResponse>(response, cancellationToken);
+            return await _utils.HandleResponse<TResponse>(response, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -32,8 +27,8 @@ public sealed class RestClient(HttpClient httpClient, ILogger<RestClient> logger
     {
         try
         {
-            HttpResponseMessage response = await _httpClient.PostAsync(uri, Serelize(data), cancellationToken);         
-            return await HandleResponse<TResponse>(response, cancellationToken);
+            HttpResponseMessage response = await _httpClient.PostAsync(uri, _utils.Serelize(data), cancellationToken);         
+            return await _utils.HandleResponse<TResponse>(response, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -45,8 +40,8 @@ public sealed class RestClient(HttpClient httpClient, ILogger<RestClient> logger
     {
         try
         {
-            HttpResponseMessage response = await _httpClient.PutAsync(uri, Serelize(data), cancellationToken);
-            return await HandleResponse<TResponse>(response, cancellationToken);
+            HttpResponseMessage response = await _httpClient.PutAsync(uri, _utils.Serelize(data), cancellationToken);
+            return await _utils.HandleResponse<TResponse>(response, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -58,39 +53,13 @@ public sealed class RestClient(HttpClient httpClient, ILogger<RestClient> logger
     {
         try
         {
-            if (data is not null) uri = Helper.GetUrlExtension(uri, data);
-
             HttpResponseMessage response = await _httpClient.DeleteAsync(uri, cancellationToken);
-            return await HandleResponse<TResponse>(response, cancellationToken);
+            return await _utils.HandleResponse<TResponse>(response, cancellationToken);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "[DELETE] Error calling {0}: {1}", uri,ex.Message);
             return default;
         }
-    }
-    private async Task<TResponse?> HandleResponse<TResponse>(HttpResponseMessage response, CancellationToken cancellationToken)
-    {
-        response.EnsureSuccessStatusCode();      
-        if (response.Content is null) return default;
-
-        string responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
-
-        if (typeof(TResponse) == typeof(string)) return (TResponse)(object)responseContent;
-     
-        return JsonSerializer.Deserialize<TResponse>(responseContent, _serializerOptions);
-    }
-    private StringContent? Serelize<TRequest>(TRequest data)
-    {
-        try
-        {
-            string json = JsonSerializer.Serialize(data, _serializerOptions);
-            return new StringContent(json, _encoding, _mediaType);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to serialize request data");
-            return default;
-        } 
     }
 }

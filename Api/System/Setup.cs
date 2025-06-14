@@ -9,19 +9,19 @@ using System.Reflection;
 namespace Api.System;
 public static class Setup
 {
-    private static readonly Events? eventBus = new();
-    private static bool swaggerEnabled = false;
+    private static readonly Events? _eventBus = new();
+    private static bool _swaggerEnabled = false;
     public static void LogAndFlush(IServiceProvider services)
     {
         ILogger logger = services.GetRequiredService<ILoggerFactory>().CreateLogger("Setup");
         
-        List <Event> events = eventBus!.Get();
+        List <Event> events = _eventBus!.Get();
         foreach (Event? entry in events)
         {
             logger.LogInformation(string.Format("[{0}]  {1}", entry.Method, entry.Message), entry.Parameters);
         }
 
-        eventBus?.Flush();
+        _eventBus?.Flush();
     }   
     public static void Logger(WebApplicationBuilder builder)
     {
@@ -34,7 +34,7 @@ public static class Setup
         builder.Logging.AddProvider(provider);
         builder.Logging.SetMinimumLevel(config.MinimumLogLevel);
 
-        eventBus?.AddEvent
+        _eventBus?.AddEvent
         (
             nameof(Setup),
             nameof(Logger),
@@ -65,7 +65,7 @@ public static class Setup
                 // Register the routes for the handler
                 request?.ConfigureRoutes(app);
 
-                eventBus?.AddEvent
+                _eventBus?.AddEvent
                 (
                     nameof(Setup),
                     nameof(MapEndpoints),
@@ -75,7 +75,7 @@ public static class Setup
             }
             catch (Exception ex)
             {
-                eventBus?.AddEvent
+                _eventBus?.AddEvent
                 (
                     nameof(Setup),
                     nameof(MapEndpoints),
@@ -105,7 +105,7 @@ public static class Setup
         ServiceDescriptor? database = builder.Services
           .FirstOrDefault(service => service.ServiceType == typeof(CastleContext));
 
-        eventBus?.AddEvent
+        _eventBus?.AddEvent
         (
             nameof(Setup),
             nameof(RegisterDatabase),
@@ -121,11 +121,11 @@ public static class Setup
         builder.Services.AddSwaggerGen();
 
         ServiceDescriptor? swaggerService = builder.Services.FirstOrDefault(service => service.ServiceType == typeof(ISwaggerProvider));
-        swaggerEnabled = swaggerService != null;
+        _swaggerEnabled = swaggerService != null;
     }
     public static void StartSwagger(WebApplication app)
     {
-        if (!app.Environment.IsDevelopment() || !swaggerEnabled) return;
+        if (!app.Environment.IsDevelopment() || !_swaggerEnabled) return;
 
         try
         {
@@ -134,7 +134,7 @@ public static class Setup
         }
         catch (Exception ex)
         {
-            eventBus?.AddEvent
+            _eventBus?.AddEvent
             (
                 nameof(Setup),
                 nameof(StartSwagger),
