@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Shared.Tools.FileClient;
 namespace Shared.Tools.SimpleLogger;
 public class Provider : ILoggerProvider
@@ -20,6 +21,12 @@ public class Provider : ILoggerProvider
         }
     }
 
-    public ILogger CreateLogger(string categoryName) => new Logger(categoryName, _config!, _logFile?.Writer);
+    public ILogger CreateLogger(string categoryName)
+    {
+        if (_config == null)
+            return NullLogger.Instance;
+
+        return new Logger(categoryName, _config, _logFile?.Writer);
+    }
     public void Dispose() => _logFile?.Writer?.Dispose();
 }

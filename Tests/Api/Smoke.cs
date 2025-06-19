@@ -11,11 +11,16 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Shared.Api;
 using Shared.Tools.Swagger;
 using ApiClient.Tools;
+using Microsoft.AspNetCore.Hosting;
+using Shared.Tools.SimpleLogger;
+using Microsoft.Extensions.Configuration;
+using System.Reflection;
 namespace UnitTests.Api;
 public class ApiSmokeTests : IClassFixture<WebApplicationFactory<Program>>, IAsyncLifetime
 {
+    //private readonly ITestOutputHelper _output;
     private readonly WebApplicationFactory<Program> _factory;
-    private IRestClient _client;
+    private readonly IRestClient _client;
     private readonly Helpers _swagger;
     private readonly Content _content;
     private readonly ILogger _logger;
@@ -23,27 +28,58 @@ public class ApiSmokeTests : IClassFixture<WebApplicationFactory<Program>>, IAsy
     private readonly Http _utils;
     public ApiSmokeTests(WebApplicationFactory<Program> factory)
     {
-        _factory = factory;
         _factory = factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<DbContextOptions<CastleContext>>();
                 services.AddDbContext<CastleContext>(options => options.UseSqlServer(SQLServer.DefaultConnection));
+
                 services.AddHttpClient<IRestClient, RestClient>("InternalApi")
-                   .ConfigurePrimaryHttpMessageHandler(() => factory.Server.CreateHandler())
-                   .ConfigureHttpClient(client =>
-                   {
-                       client.BaseAddress = new Uri("http://localhost");
-                   });
+                    .ConfigurePrimaryHttpMessageHandler(() => factory.Server.CreateHandler())
+                    .ConfigureHttpClient(client =>
+                    {
+                        client.BaseAddress = new Uri("http://localhost");
+                    });
             });
+            //builder.ConfigureLogging((context, loggingBuilder) =>
+            //{
+            //    loggingBuilder.ClearProviders();
+            //    IConfigurationRoot config = Configure.BuildConfiguration();
+            //    Configure.ConfigureLogging(loggingBuilder, config);
+            //    loggingBuilder.AddConsole();
+            //});
+            //builder.ConfigureLogging((context, loggingBuilder) =>
+            //{
+            //    IConfigurationRoot config = Configure.BuildConfiguration();
+            //    Configure.ConfigureLogging(loggingBuilder, config);
+            //    loggingBuilder.AddConsole();
+            //});
         });
 
-        _client = _factory.Services.GetRequiredService<IRestClient>();
         _logger = _factory.Services.GetRequiredService<ILogger<ApiSmokeTests>>();
+        _client = _factory.Services.GetRequiredService<IRestClient>();
         _utils = new(_logger);
         _swagger = new(_client, _logger);
         _content = new(_logger);
+
+        var a = _logger.GetType();
+
+        var loggerFactory = _factory.Services.GetRequiredService<ILogger<ApiSmokeTests>>();
+        var providersField = loggerFactory.GetType().GetField("_providers", BindingFlags.NonPublic | BindingFlags.Instance);
+        var providers = providersField?.GetValue(loggerFactory) as IEnumerable<ILoggerProvider>;
+
+        if (providers != null)
+        {
+            foreach (var provider in providers)
+            {
+                Console.WriteLine($"[DEBUG] Provider: {provider.GetType().FullName}");
+            }
+        }
+        else
+        {
+            Console.WriteLine("⚠️ Could not reflect logger providers.");
+        }
     }
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     public async ValueTask InitializeAsync()
@@ -64,6 +100,7 @@ public class ApiSmokeTests : IClassFixture<WebApplicationFactory<Program>>, IAsy
     [Fact]
     public async Task ApiSmoke_AllEndpoints_Success()
     {
+        //_output.WriteLine("This appears in test output window");
         CancellationToken cancellationToken = default;
         if (!_endpoints!.Any())
             return;

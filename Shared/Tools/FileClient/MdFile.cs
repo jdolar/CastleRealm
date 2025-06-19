@@ -3,6 +3,7 @@ using Shared.Api;
 using Shared.Tools.Swagger.Models;
 using System.Text;
 namespace Shared.Tools.FileClient;
+
 public sealed class MdFile(ILogger logger) : BaseFile(logger)
 {
     private readonly ILogger _logger = logger;
@@ -16,24 +17,25 @@ public sealed class MdFile(ILogger logger) : BaseFile(logger)
 
         StringBuilder sb = new();
 
-        // Facade labels (one per block of 5 columns)
-        sb.AppendLine($"| {facadeNames[0]} | Name | Method | Parameters | Misc | " +
-                      $"{facadeNames[1]} | Name | Method | Parameters | Misc | " +
-                      $"{facadeNames[2]} | Name | Method | Parameters | Misc |");
+        // Facade labels (each block now has 6 columns)
+        sb.AppendLine($"| {facadeNames[0]} | Name | Method | Parameters | Request Body | Misc | " +
+                      $"{facadeNames[1]} | Name | Method | Parameters | Request Body | Misc | " +
+                      $"{facadeNames[2]} | Name | Method | Parameters | Request Body | Misc |");
 
         // Markdown header alignment
-        sb.AppendLine("|------------------|------|--------|------------|------|" +
-                      "------------------|------|--------|------------|------|" +
-                      "------------------|------|--------|------------|------|");
+        sb.AppendLine("|------------------|------|--------|------------|--------------|------|" +
+                      "------------------|------|--------|------------|--------------|------|" +
+                      "------------------|------|--------|------------|--------------|------|");
 
         foreach (var match in matches)
         {
             string FormatEndpoint(Endpoint? ep)
             {
                 if (ep == null)
-                    return "- | - | - | - | -";
+                    return "- | - | - | - | - | -";
 
                 string parameters = FormatParameters(ep.Parameters).Replace("\r", "").Replace("\n", "<br>");
+                string requestBody = FormatRequestBody(ep.RequestBody).Replace("\r", "").Replace("\n", "<br>");
                 string miscParts = "";
 
                 if (!string.IsNullOrWhiteSpace(ep.Operation))
@@ -43,7 +45,7 @@ public sealed class MdFile(ILogger logger) : BaseFile(logger)
                 if (!string.IsNullOrWhiteSpace(ep.Title))
                     miscParts += $" [Title={Escape(ep.Title)}]";
 
-                return $"{Escape(ep.Path)} | {Escape(ep.Name)} | {Escape(ep.Method)} | {parameters} | {Escape(miscParts.Trim())}";
+                return $"{Escape(ep.Path)} | {Escape(ep.Name)} | {Escape(ep.Method)} | {parameters} | {requestBody} | {Escape(miscParts.Trim())}";
             }
 
             string row = $"| {FormatEndpoint(match.A)} | {FormatEndpoint(match.B)} | {FormatEndpoint(match.C)} |";
@@ -64,6 +66,15 @@ public sealed class MdFile(ILogger logger) : BaseFile(logger)
             return "-";
 
         return string.Join("<br>", parameters.Select(p =>
+            $"**{p.Name}** ({p.Type}) [{p.In}]{(p.Required ? " (required)" : "")}"
+        ));
+    }
+    private string FormatRequestBody(List<Parameter>? requestBody)
+    {
+        if (requestBody == null || requestBody.Count == 0)
+            return "-";
+
+        return string.Join("<br>", requestBody.Select(p =>
             $"**{p.Name}** ({p.Type}) [{p.In}]{(p.Required ? " (required)" : "")}"
         ));
     }

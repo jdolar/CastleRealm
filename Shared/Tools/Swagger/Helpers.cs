@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Shared.Api;
 using Shared.Tools.FileClient;
 using Shared.Tools.Swagger.Models;
+using System.IO;
 using System.Text.Json;
 namespace Shared.Tools.Swagger;
 public sealed class Helpers
@@ -38,58 +39,96 @@ public sealed class Helpers
         try
         {
             List<Parameter> parameters = new();
-            if (property.Value.TryGetProperty("requestBody", out JsonElement bodyArray))
+
+            if (property.Value.TryGetProperty("requestBody", out JsonElement bodyElement) &&
+                bodyElement.TryGetProperty("content", out var contentElement) &&
+                contentElement.TryGetProperty("application/json", out var appJsonElement) &&
+                appJsonElement.TryGetProperty("schema", out var schemaElement))
             {
-                if (bodyArray.TryGetProperty("content", out var content) &&
-                    content.TryGetProperty("application/json", out var appJson) &&
-                    appJson.TryGetProperty("schema", out var schema))
+                JsonElement? refSchema = null;
+
+                // Handle "allOf" with $ref
+                if (schemaElement.TryGetProperty("allOf", out var allOfArray) &&
+                    allOfArray.ValueKind == JsonValueKind.Array)
                 {
-                    // If schema has $ref, resolve it
-                    if (schema.TryGetProperty("$ref", out var refProp))
+                    foreach (var item in allOfArray.EnumerateArray())
                     {
-                        string refPath = refProp.GetString()!;
-                        // e.g., "#/components/schemas/CreateUserRequest"
-                        var schemaName = refPath.Split('/').Last();
-
-                        if (doc.RootElement.TryGetProperty("components", out var components) &&
-                            components.TryGetProperty("schemas", out var schemas) &&
-                            schemas.TryGetProperty(schemaName, out var schemaDef))
+                        if (item.TryGetProperty("$ref", out var refElement))
                         {
-                            var requiredProps = new HashSet<string>();
-                            if (schemaDef.TryGetProperty("required", out var requiredArray))
-                            {
-                                requiredProps = requiredArray.EnumerateArray()
-                                    .Where(x => x.ValueKind == JsonValueKind.String)
-                                    .Select(x => x.GetString()!)
-                                    .ToHashSet();
-                            }
-
-                            if (schemaDef.TryGetProperty("properties", out var properties))
-                            {
-                                foreach (var prop in properties.EnumerateObject())
-                                {
-                                    string propName = prop.Name;
-                                    var propSchema = prop.Value;
-
-                                    string type = propSchema.TryGetProperty("type", out var typeProp) ? typeProp.GetString()! : "object";
-
-                                    parameters.Add(new Parameter
-                                    {
-                                        Name = propName,
-                                        In = "body",
-                                        Required = requiredProps.Contains(propName),
-                                        Type = type
-                                    });
-                                }
-                            }
+                            refSchema = ResolveRef(refElement.GetString()!, doc);
+                            break;
                         }
                     }
                 }
+                // Handle direct $ref
+                else if (schemaElement.TryGetProperty("$ref", out var refProp))
+                {
+                    refSchema = ResolveRef(refProp.GetString()!, doc);
+                }
+
+                if (refSchema.HasValue)
+                {
+                    JsonElement schemaDef = refSchema.Value;
+
+                    HashSet<string> requiredProps = new();
+                    if (schemaDef.TryGetProperty("required", out var requiredArray))
+                    {
+                        requiredProps = requiredArray.EnumerateArray()
+                            .Where(x => x.ValueKind == JsonValueKind.String)
+                            .Select(x => x.GetString()!)
+                            .ToHashSet();
+                    }
+
+                    if (schemaDef.TryGetProperty("properties", out var properties))
+                    {
+                        foreach (var prop in properties.EnumerateObject())
+                        {
+                            string propName = prop.Name;
+                            JsonElement propSchema = prop.Value;
+
+                            string type = propSchema.TryGetProperty("type", out var typeProp) ? typeProp.GetString()! : "object";
+
+                            parameters.Add(new Parameter
+                            {
+                                Name = propName,
+                                In = "body",
+                                Required = requiredProps.Contains(propName),
+                                Type = type
+                            });
+                        }
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("❗ No $ref found in schema or allOf for requestBody: {0}", schemaElement.ToString());
+                }
             }
+
+            return parameters;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[GetRequestBody] => error getting request body property: {0}", ex.Message);
+            _logger.LogError(ex, "[GetRequestBody] => error getting request body: {0}", ex.Message);
+            return null;
+        }
+    }
+    private JsonElement? ResolveRef(string refPath, JsonDocument doc)
+    {
+        if (string.IsNullOrWhiteSpace(refPath))
+            return null;
+
+        string[] parts = refPath.Split('/');
+        if (parts.Length < 3)
+            return null;
+
+        // Example: "#/components/schemas/SomeSchema" -> parts = [#, components, schemas, SomeSchema]
+        string schemaName = parts[^1];
+
+        if (doc.RootElement.TryGetProperty("components", out var components) &&
+            components.TryGetProperty("schemas", out var schemas) &&
+            schemas.TryGetProperty(schemaName, out var schemaDef))
+        {
+            return schemaDef;
         }
 
         return null;
@@ -273,6 +312,26 @@ public sealed class Helpers
         }
         return false;
     }
+    public static string GetNameFromPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return "-";
+
+        // Normalize and split by slash
+        string[] parts = path.Trim('/').Split('/');
+
+        if (parts.Length == 0)
+            return "-";
+
+        // Check if the last segment is a route parameter like "{id}"
+        string lastSegment = parts[^1];
+        bool isParam = lastSegment.StartsWith("{") && lastSegment.EndsWith("}");
+
+        string targetSegment = isParam && parts.Length >= 2 ? parts[^2] : lastSegment;
+
+        // Remove extension if present
+        return Path.GetFileNameWithoutExtension(targetSegment);
+    }
     public List<Endpoint>? GetEndPoints(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
@@ -305,7 +364,7 @@ public sealed class Helpers
                     Endpoint endpoint = new()
                     {
                         Path = path.Name,
-                        Name = Path.GetFileNameWithoutExtension(path.Name),
+                        Name = GetNameFromPath(path.Name),
                         Method = method.Name.ToUpperInvariant(),
                         Operation = GetStringProperty(method, "operationId") ?? string.Empty,
                         Tags = GetArrayPropertyAsString(method, "tags") ?? string.Empty,
