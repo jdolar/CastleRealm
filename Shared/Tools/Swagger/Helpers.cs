@@ -3,7 +3,6 @@ using Microsoft.Extensions.Logging;
 using Shared.Api;
 using Shared.Tools.FileClient;
 using Shared.Tools.Swagger.Models;
-using System.IO;
 using System.Text.Json;
 namespace Shared.Tools.Swagger;
 public sealed class Helpers
@@ -18,21 +17,6 @@ public sealed class Helpers
         _logger = logger;
         _servicePath ??= servicePath ?? "/swagger/v1/swagger.json";
         _jsonFile = new(logger);
-    }
-    public string? GetHighestAvailibleTier(string? tierOne, string? tierTwo, string? trierThree)
-    {
-        try
-        {
-            if (!string.IsNullOrWhiteSpace(tierOne)) return tierOne;
-            else if (!string.IsNullOrWhiteSpace(tierTwo)) return tierTwo;
-            else if (!string.IsNullOrWhiteSpace(trierThree)) return trierThree;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "[GetHighestAvailibleTier] => error determining highest tier: {0}", ex.Message);
-        }
-
-        return null;
     }
     public List<Parameter>? GetRequestBody(JsonProperty property, JsonDocument doc)
     {
@@ -121,7 +105,7 @@ public sealed class Helpers
         if (parts.Length < 3)
             return null;
 
-        // Example: "#/components/schemas/SomeSchema" -> parts = [#, components, schemas, SomeSchema]
+
         string schemaName = parts[^1];
 
         if (doc.RootElement.TryGetProperty("components", out var components) &&
@@ -171,25 +155,6 @@ public sealed class Helpers
         catch (Exception ex)
         {
             _logger.LogError(ex, "[GetParameters] => error getting parameters property: {0}", ex.Message);
-        }
-
-        return null;
-    }
-    public string? GetArrayPropertyAsString(JsonProperty prop, string propName)
-    {
-        try
-        {
-            if (prop.Value.TryGetProperty("tags", out var tags) &&
-            tags.ValueKind == JsonValueKind.Array)
-            {
-                return tags.EnumerateArray()
-                                    .Select(t => t.GetString())
-                                    .FirstOrDefault(t => !string.IsNullOrWhiteSpace(t));
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "[GetArrayPropertyAsString] => error getting array as string property: {0}", ex.Message);
         }
 
         return null;
@@ -366,12 +331,9 @@ public sealed class Helpers
                         Path = path.Name,
                         Name = GetNameFromPath(path.Name),
                         Method = method.Name.ToUpperInvariant(),
-                        Operation = GetStringProperty(method, "operationId") ?? string.Empty,
-                        Tags = GetArrayPropertyAsString(method, "tags") ?? string.Empty,
                         Title = GetStringProperty(method, "title") ?? string.Empty
                     };
 
-                    endpoint.MachParameter = GetHighestAvailibleTier(endpoint.Operation, endpoint.Tags, endpoint.Title) ?? string.Empty;
                     endpoint.Parameters = GetParameters(method);
                     endpoint.RequestBody = GetRequestBody(method, doc);
 

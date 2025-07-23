@@ -25,20 +25,6 @@ public static class Setup
     }   
     public static void Logger(WebApplicationBuilder builder)
     {
-        //IConfigurationRoot config = Configure.BuildConfiguration();
-        //builder.Configuration.AddConfiguration(config);
-        //Configure.ConfigureLogging(builder.Logging, config);
-
-        //Configuration config = new();
-        //builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
-        //builder.Configuration.GetSection("Logging:SimpleLogger").Bind(config);
-
-        //Provider provider = new(config);
-        //builder.Logging.ClearProviders();
-        //builder.Logging.AddProvider(provider);
-        //builder.Logging.SetMinimumLevel(config.MinimumLogLevel);
-
-
         builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
 
         var configSection = builder.Configuration.GetSection("Logging:SimpleLogger");
@@ -51,16 +37,7 @@ public static class Setup
 
         // 🔥 THIS sets the global minimum log level
         builder.Logging.SetMinimumLevel(simpleLoggerConfig.MinimumLogLevel);
-    
-
-
-    //_eventBus?.AddEvent
-    //    (
-    //        nameof(Setup),
-    //        nameof(Logger),
-    //        LogLevel.Debug,
-    //        "string.Format("\nProvider={0}\nConfig={1}", "To-DOprovider", config)"
-    //    );
+   
     }
     public static void DebugStartup(WebApplicationBuilder builder)
     {

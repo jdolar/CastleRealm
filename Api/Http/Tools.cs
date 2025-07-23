@@ -1,5 +1,4 @@
-﻿using ApiClient;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Shared.Api;
 namespace Api.Http;
 public sealed class Tools
@@ -32,24 +31,6 @@ public sealed class Tools
             .WithName(nameof(Decrypt))
             .WithTags(nameof(Tools))
             .Produces<Shared.Responses.Tools.Decrypt>(StatusCodes.Status200OK);
-        }
-    }
-    public sealed class SwaggerCompare : IEndPoint
-    {
-        public string Path { get; } = string.Format("{0}/{1}", nameof(Tools), nameof(SwaggerCompare));
-        public void ConfigureRoutes(IEndpointRouteBuilder app)
-        {
-            app.MapPost(Path, async (Shared.Requests.Tools.SwaggerCompare request,
-                [FromServices] ILogger<SwaggerCompare> logger,
-                [FromServices] IRestClient client) =>
-            {
-                Domain.Tools.SwaggerCompare compare = new(client, logger);
-                (string, int) response = await compare.CompareAsync(request);
-                return Results.Ok(new Shared.Responses.Tools.SwaggerCompared(response.Item1, response.Item2));
-            })
-            .WithName(nameof(SwaggerCompare))
-            .WithTags(nameof(Tools))
-            .Produces<Shared.Responses.Tools.SwaggerCompared>(StatusCodes.Status200OK);
         }
     }
 }
